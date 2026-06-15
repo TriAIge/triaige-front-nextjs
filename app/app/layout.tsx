@@ -19,14 +19,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Toaster theme="dark" position="top-right" richColors />
-      <header className="h-14 border-b border-border bg-card/60 backdrop-blur-xl sticky top-0 z-30 flex items-center px-4 md:px-6 gap-4">
+      <header className="h-18 border-b border-border bg-card/60 backdrop-blur-xl sticky top-0 z-30 flex items-center px-4 md:px-6 gap-4">
         <button onClick={() => setOpen((v) => !v)} className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground">
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
         <Link href="/app/cases" className="font-display text-lg tracking-tight">
-          tri<span className="text-brand">AI</span>ge
+          <img src="/logo.png" alt="triAIge" className="h-10xl" />
         </Link>
-        <span className="hidden md:inline text-xs text-muted-foreground">Painel · Demo</span>
+        <span className="hidden md:inline text-xs text-muted-foreground">Painel/Rastreamento de cases</span>
         <div className="ml-auto flex items-center gap-3">
           <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]">demo@triaige.ai</span>
           <button

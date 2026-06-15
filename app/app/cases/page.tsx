@@ -23,12 +23,12 @@ type CaseRow = {
 };
 
 const STATUS_META: Record<CaseStatus, { label: string; cls: string }> = {
-  recebido:         { label: "Recebido",         cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
-  em_validacao:     { label: "Em validação",     cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  recebido: { label: "Recebido", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  em_validacao: { label: "Em validação", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
   em_processamento: { label: "Em processamento", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
   relatorio_gerado: { label: "Relatório gerado", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  enviado:          { label: "Enviado",          cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  falha:            { label: "Falha",            cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+  enviado: { label: "Enviado", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  falha: { label: "Falha", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
 };
 
 function fmtDate(d?: string | null) {
@@ -47,14 +47,14 @@ const MOCK_COMPANIES: Company[] = [
 const now = Date.now();
 const h = (n: number) => new Date(now - n * 3600_000).toISOString();
 const MOCK_CASES: CaseRow[] = [
-  { id: "1", case_code: "CASE-2026-1042", status: "enviado",          channel: "API",      sender_registered: true,  plan: "Enterprise",   deadline: h(-24), notes: "Triagem trabalhista concluída — relatório anexado.", submitted_at: h(2),   updated_at: h(1),  company_id: "c1", company: MOCK_COMPANIES[0] },
-  { id: "2", case_code: "CASE-2026-1041", status: "em_processamento", channel: "WhatsApp", sender_registered: true,  plan: "Profissional", deadline: h(-48), notes: "Cliente solicitou priorização.",                    submitted_at: h(3),   updated_at: h(2),  company_id: "c2", company: MOCK_COMPANIES[1] },
-  { id: "3", case_code: "CASE-2026-1040", status: "relatorio_gerado", channel: "Web",      sender_registered: true,  plan: "Profissional", deadline: h(-72), notes: null,                                                submitted_at: h(5),   updated_at: h(4),  company_id: "c4", company: MOCK_COMPANIES[3] },
-  { id: "4", case_code: "CASE-2026-1039", status: "em_validacao",     channel: "API",      sender_registered: false, plan: "Starter",      deadline: h(-12), notes: "Documentação parcial — aguardando confirmação.",   submitted_at: h(6),   updated_at: h(5),  company_id: "c3", company: MOCK_COMPANIES[2] },
-  { id: "5", case_code: "CASE-2026-1038", status: "falha",            channel: "CRM",      sender_registered: true,  plan: "Enterprise",   deadline: null,   notes: "Falha na integração com endpoint do cliente.",     submitted_at: h(8),   updated_at: h(7),  company_id: "c1", company: MOCK_COMPANIES[0] },
-  { id: "6", case_code: "CASE-2026-1037", status: "recebido",         channel: "WhatsApp", sender_registered: true,  plan: "Profissional", deadline: h(-96), notes: "Caso de família — divórcio consensual.",           submitted_at: h(10),  updated_at: h(10), company_id: "c2", company: MOCK_COMPANIES[1] },
-  { id: "7", case_code: "CASE-2026-1036", status: "enviado",          channel: "API",      sender_registered: true,  plan: "Profissional", deadline: h(-120),notes: null,                                                submitted_at: h(26),  updated_at: h(24), company_id: "c4", company: MOCK_COMPANIES[3] },
-  { id: "8", case_code: "CASE-2026-1035", status: "enviado",          channel: "Web",      sender_registered: true,  plan: "Enterprise",   deadline: h(-200),notes: "Análise contratual finalizada.",                   submitted_at: h(30),  updated_at: h(28), company_id: "c1", company: MOCK_COMPANIES[0] },
+  { id: "1", case_code: "CASE-2026-1042", status: "enviado", channel: "API", sender_registered: true, plan: "Enterprise", deadline: h(-24), notes: "Triagem trabalhista concluída — relatório anexado.", submitted_at: h(2), updated_at: h(1), company_id: "c1", company: MOCK_COMPANIES[0] },
+  { id: "2", case_code: "CASE-2026-1041", status: "em_processamento", channel: "WhatsApp", sender_registered: true, plan: "Profissional", deadline: h(-48), notes: "Cliente solicitou priorização.", submitted_at: h(3), updated_at: h(2), company_id: "c2", company: MOCK_COMPANIES[1] },
+  { id: "3", case_code: "CASE-2026-1040", status: "relatorio_gerado", channel: "Web", sender_registered: true, plan: "Profissional", deadline: h(-72), notes: null, submitted_at: h(5), updated_at: h(4), company_id: "c4", company: MOCK_COMPANIES[3] },
+  { id: "4", case_code: "CASE-2026-1039", status: "em_validacao", channel: "API", sender_registered: false, plan: "Starter", deadline: h(-12), notes: "Documentação parcial — aguardando confirmação.", submitted_at: h(6), updated_at: h(5), company_id: "c3", company: MOCK_COMPANIES[2] },
+  { id: "5", case_code: "CASE-2026-1038", status: "falha", channel: "CRM", sender_registered: true, plan: "Enterprise", deadline: null, notes: "Falha na integração com endpoint do cliente.", submitted_at: h(8), updated_at: h(7), company_id: "c1", company: MOCK_COMPANIES[0] },
+  { id: "6", case_code: "CASE-2026-1037", status: "recebido", channel: "WhatsApp", sender_registered: true, plan: "Profissional", deadline: h(-96), notes: "Caso de família — divórcio consensual.", submitted_at: h(10), updated_at: h(10), company_id: "c2", company: MOCK_COMPANIES[1] },
+  { id: "7", case_code: "CASE-2026-1036", status: "enviado", channel: "API", sender_registered: true, plan: "Profissional", deadline: h(-120), notes: null, submitted_at: h(26), updated_at: h(24), company_id: "c4", company: MOCK_COMPANIES[3] },
+  { id: "8", case_code: "CASE-2026-1035", status: "enviado", channel: "Web", sender_registered: true, plan: "Enterprise", deadline: h(-200), notes: "Análise contratual finalizada.", submitted_at: h(30), updated_at: h(28), company_id: "c1", company: MOCK_COMPANIES[0] },
 ];
 
 export default function CasesPage() {
@@ -130,10 +130,12 @@ export default function CasesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_2fr] gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <KpiCard icon={<Inbox className="size-5" />} label="Cases recebidos hoje" value={kpis.recebidosHoje} accent="text-sky-300" />
         <KpiCard icon={<Settings2 className="size-5" />} label="Em processamento" value={kpis.emProc} accent="text-amber-300" />
         <KpiCard icon={<AlertTriangle className="size-5" />} label="Falhas de envio" value={kpis.falhas} accent="text-rose-300" />
+      </div>
+      <div className="items-center mb-4">
         <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-3 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-end">
           <label className="block">
             <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Buscar case</span>
