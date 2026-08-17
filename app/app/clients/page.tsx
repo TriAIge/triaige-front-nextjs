@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
-import { Building2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api-client";
 
 type Company = {
   id: string;
@@ -27,10 +28,15 @@ const MOCK: Company[] = [
 ];
 
 export default function ClientsPage() {
-  const [items, setItems] = useState<Company[]>(MOCK);
+  const [items, setItems] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Company | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    api.clients.list().then(setItems).catch((error) => toast.error(error.message)).finally(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search) return items;
@@ -38,22 +44,29 @@ export default function ClientsPage() {
     return items.filter((c) => c.name.toLowerCase().includes(q) || (c.cnpj ?? "").toLowerCase().includes(q) || (c.contact_email ?? "").toLowerCase().includes(q));
   }, [items, search]);
 
-  function remove(id: string) {
+  async function remove(id: string) {
     if (!confirm("Excluir este escritório?")) return;
-    setItems((xs) => xs.filter((c) => c.id !== id));
-    toast.success("Escritório excluído");
+    try {
+      await api.clients.remove(id);
+      setItems((xs) => xs.filter((c) => c.id !== id));
+      toast.success("Escritório excluído");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao excluir."); }
   }
   function openNew() { setEditing(null); setShowForm(true); }
   function openEdit(c: Company) { setEditing(c); setShowForm(true); }
-  function save(payload: Omit<Company, "id" | "created_at" | "cases_count">) {
-    if (editing) {
-      setItems((xs) => xs.map((c) => c.id === editing.id ? { ...c, ...payload } : c));
-      toast.success("Escritório atualizado");
-    } else {
-      setItems((xs) => [{ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString(), cases_count: 0 }, ...xs]);
-      toast.success("Escritório cadastrado");
-    }
-    setShowForm(false);
+  async function save(payload: Omit<Company, "id" | "created_at" | "cases_count">) {
+    try {
+      if (editing) {
+        const updated = await api.clients.update(editing.id, payload);
+        setItems((xs) => xs.map((c) => c.id === editing.id ? updated : c));
+        toast.success("Escritório atualizado");
+      } else {
+        const created = await api.clients.create(payload);
+        setItems((xs) => [created, ...xs]);
+        toast.success("Escritório cadastrado");
+      }
+      setShowForm(false);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao salvar."); }
   }
 
   return (
@@ -76,7 +89,9 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="rounded-xl border border-border bg-card/60 p-12 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Carregando escritórios...</div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-12 text-center">
           <div className="mx-auto size-12 rounded-full bg-secondary/60 border border-border flex items-center justify-center mb-3"><Building2 className="size-5 text-muted-foreground" /></div>
           <div className="font-medium">Nenhum escritório encontrado</div>

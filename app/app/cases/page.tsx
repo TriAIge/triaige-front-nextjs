@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Inbox, Plus, RefreshCw, Search, Settings2, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Inbox, Loader2, Plus, RefreshCw, Search, Settings2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api-client";
 
 type CaseStatus = "recebido" | "em_validacao" | "em_processamento" | "relatorio_gerado" | "enviado" | "falha";
 type CaseChannel = "API" | "Web" | "WhatsApp" | "CRM";
@@ -58,12 +59,28 @@ const MOCK_CASES: CaseRow[] = [
 ];
 
 export default function CasesPage() {
-  const [cases, setCases] = useState<CaseRow[]>(MOCK_CASES);
+  const [cases, setCases] = useState<CaseRow[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CaseStatus>("all");
   const [companyFilter, setCompanyFilter] = useState<"all" | string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>("1");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+
+  const loadData = useCallback(async (notify = false) => {
+    setLoading(true);
+    try {
+      const [caseRows, clientRows] = await Promise.all([api.cases.list(), api.clients.list()]);
+      setCases(caseRows);
+      setCompanies(clientRows.map(({ id, name, plan }) => ({ id, name, plan })));
+      setSelectedId((current) => current ?? caseRows[0]?.id ?? null);
+      if (notify) toast.success("Dados atualizados");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao carregar dados."); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { void loadData(); }, [loadData]);
 
   const filtered = useMemo(() => cases.filter((c) => {
     if (statusFilter !== "all" && c.status !== statusFilter) return false;
@@ -86,30 +103,32 @@ export default function CasesPage() {
     };
   }, [cases]);
 
-  function removeCase(id: string) {
+  async function removeCase(id: string) {
     if (!confirm("Excluir este case?")) return;
-    setCases((cs) => cs.filter((c) => c.id !== id));
-    toast.success("Case excluído");
-    setSelectedId(null);
+    try {
+      await api.cases.remove(id);
+      setCases((cs) => cs.filter((c) => c.id !== id));
+      toast.success("Case excluído");
+      setSelectedId(null);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao excluir."); }
   }
 
-  function updateStatus(id: string, next: CaseStatus) {
-    setCases((cs) => cs.map((c) => c.id === id ? { ...c, status: next, updated_at: new Date().toISOString() } : c));
-    toast.success("Status atualizado");
+  async function updateStatus(id: string, next: CaseStatus) {
+    try {
+      const updated = await api.cases.update(id, { status: next });
+      setCases((cs) => cs.map((c) => c.id === id ? updated : c));
+      toast.success("Status atualizado");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao atualizar."); }
   }
 
-  function createCase(payload: Omit<CaseRow, "id" | "company" | "submitted_at" | "updated_at">) {
-    const company = MOCK_COMPANIES.find((c) => c.id === payload.company_id) ?? null;
-    const newCase: CaseRow = {
-      ...payload,
-      id: crypto.randomUUID(),
-      company,
-      submitted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setCases((cs) => [newCase, ...cs]);
-    toast.success("Case criado");
-    setShowNew(false);
+  async function createCase(payload: Omit<CaseRow, "id" | "company" | "submitted_at" | "updated_at">) {
+    try {
+      const created = await api.cases.create(payload);
+      setCases((cs) => [created, ...cs]);
+      setSelectedId(created.id);
+      toast.success("Case criado");
+      setShowNew(false);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao criar."); }
   }
 
   return (
@@ -121,8 +140,8 @@ export default function CasesPage() {
           <p className="text-sm text-muted-foreground mt-1">Acompanhe em tempo real cada case enviado por seus escritórios clientes.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => toast.success("Atualizado")} className="inline-flex items-center gap-2 h-10 px-3 rounded-lg border border-border text-sm hover:bg-secondary transition">
-            <RefreshCw className="size-4" /> Atualizar
+          <button onClick={() => void loadData(true)} disabled={loading} className="inline-flex items-center gap-2 h-10 px-3 rounded-lg border border-border text-sm hover:bg-secondary transition disabled:opacity-60">
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
           </button>
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-brand text-brand-foreground font-semibold text-sm brand-glow hover:opacity-95 transition">
             <Plus className="size-4" /> Novo case
@@ -155,7 +174,7 @@ export default function CasesPage() {
             <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Escritório</span>
             <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="mt-1 h-10 px-3 rounded-lg bg-secondary/60 border border-border text-sm outline-none focus:border-brand/60">
               <option value="all">Todos</option>
-              {MOCK_COMPANIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </label>
         </div>
@@ -167,7 +186,9 @@ export default function CasesPage() {
             <div>ID do Case</div><div>Escritório</div><div>Data de envio</div><div>Status</div><div>Canal</div><div>Última atualização</div>
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="p-12 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Carregando cases...</div>
+            ) : filtered.length === 0 ? (
               <EmptyState onCreate={() => setShowNew(true)} />
             ) : (
               filtered.map((c) => {
@@ -193,7 +214,7 @@ export default function CasesPage() {
       </div>
 
       {showNew && (
-        <NewCaseModal onClose={() => setShowNew(false)} onCreate={createCase} />
+        <NewCaseModal companies={companies} onClose={() => setShowNew(false)} onCreate={createCase} />
       )}
     </div>
   );
@@ -301,9 +322,9 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function NewCaseModal({ onClose, onCreate }: { onClose: () => void; onCreate: (payload: Omit<CaseRow, "id" | "company" | "submitted_at" | "updated_at">) => void }) {
+function NewCaseModal({ companies, onClose, onCreate }: { companies: Company[]; onClose: () => void; onCreate: (payload: Omit<CaseRow, "id" | "company" | "submitted_at" | "updated_at">) => void }) {
   const [caseCode, setCaseCode] = useState(() => "CASE-" + new Date().getFullYear() + "-" + Math.floor(Math.random() * 9000 + 1000));
-  const [companyId, setCompanyId] = useState(MOCK_COMPANIES[0]?.id ?? "");
+  const [companyId, setCompanyId] = useState(companies[0]?.id ?? "");
   const [channel, setChannel] = useState<CaseChannel>("API");
   const [status, setStatus] = useState<CaseStatus>("recebido");
   const [notes, setNotes] = useState("");
@@ -316,7 +337,7 @@ function NewCaseModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p
       company_id: companyId || null,
       channel, status,
       sender_registered: true,
-      plan: MOCK_COMPANIES.find((c) => c.id === companyId)?.plan ?? null,
+      plan: companies.find((c) => c.id === companyId)?.plan ?? null,
       notes: notes || null,
       deadline: deadline ? new Date(deadline).toISOString() : null,
     });
@@ -334,7 +355,7 @@ function NewCaseModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p
           <div className="grid grid-cols-2 gap-3">
             <Field label="Escritório">
               <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="modal-input">
-                {MOCK_COMPANIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
             <Field label="Canal">

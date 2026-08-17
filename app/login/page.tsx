@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Loader2, Lock, Mail, Building2, User as UserIcon, Briefcase } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import { api } from "@/lib/api-client";
 
 type Mode = "signin" | "signup";
 
@@ -12,15 +13,20 @@ export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [loading, setLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState(mode === "signin" ? "demo@triaige.ai" : "");
+  const [password, setPassword] = useState(mode === "signin" ? "demo123" : "");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const result = await api.auth(mode, { name, email, password });
+      localStorage.setItem("triaige_session", JSON.stringify(result));
       toast.success(mode === "signin" ? "Bem-vindo de volta" : "Conta criada");
       router.push("/app/cases");
-    }, 600);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível entrar."); }
+    finally { setLoading(false); }
   }
 
   return (
@@ -75,7 +81,7 @@ export default function LoginPage() {
               {mode === "signup" && (
                 <>
                   <Field icon={<UserIcon className="size-4" />} label="Nome completo">
-                    <input placeholder="Maria Andrade" className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
+                    <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Andrade" className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
                     <Field icon={<Building2 className="size-4" />} label="Empresa">
@@ -89,12 +95,12 @@ export default function LoginPage() {
               )}
 
               <Field icon={<Mail className="size-4" />} label="Email corporativo">
-                <input type="email" autoComplete="email" placeholder="voce@empresa.com"
+                <input required value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="voce@empresa.com"
                   className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
               </Field>
 
               <Field icon={<Lock className="size-4" />} label="Senha">
-                <input type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder="••••••••"
+                <input required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder="••••••••"
                   className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
               </Field>
 
@@ -105,7 +111,7 @@ export default function LoginPage() {
               </button>
 
               <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-                Demo institucional · sem autenticação real. Dados protegidos sob LGPD · Criptografia AES-256.
+                Acesso demo: demo@triaige.ai · senha demo123.
               </p>
             </form>
           </div>
