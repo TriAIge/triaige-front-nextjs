@@ -1,108 +1,101 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import { db } from "./mysql";
+import { hashPassword } from "./password";
 import type { CaseChannel, CaseStatus, Company, LegalCase } from "./types";
 
-type StoredCompany = Omit<Company, "cases_count">;
-type StoredCase = Omit<LegalCase, "company">;
-type StoredUser = { id: string; name: string; email: string; password: string };
-type Database = { companies: StoredCompany[]; cases: StoredCase[]; users: StoredUser[] };
+type CompanyInput = Omit<Company, "id" | "created_at" | "cases_count">;
+export type UserRow = RowDataPacket & { id: string; name: string; email: string; password_hash: string };
 
-const dbPath = path.join(process.cwd(), "data", "db.json");
-let writeQueue = Promise.resolve();
+const COMPANY_SELECT = `SELECT c.id, c.name, c.cnpj, c.contact_email, c.contact_phone, c.plan, c.notes,
+  DATE_FORMAT(c.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at, COUNT(lc.id) AS cases_count
+  FROM companies c LEFT JOIN legal_cases lc ON lc.company_id = c.id`;
 
-async function readDb(): Promise<Database> {
-  return JSON.parse(await fs.readFile(dbPath, "utf8")) as Database;
-}
+const CASE_SELECT = `SELECT lc.id, lc.case_code, lc.status, lc.channel, lc.sender_registered, lc.plan,
+  DATE_FORMAT(lc.deadline, '%Y-%m-%dT%H:%i:%s.000Z') AS deadline, lc.notes,
+  DATE_FORMAT(lc.submitted_at, '%Y-%m-%dT%H:%i:%s.000Z') AS submitted_at,
+  DATE_FORMAT(lc.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updated_at,
+  lc.company_id, c.name AS company_name, c.plan AS company_plan
+  FROM legal_cases lc LEFT JOIN companies c ON c.id = lc.company_id`;
 
-async function mutate<T>(operation: (db: Database) => T | Promise<T>): Promise<T> {
-  let result!: T;
-  writeQueue = writeQueue.then(async () => {
-    const db = await readDb();
-    result = await operation(db);
-    await fs.writeFile(dbPath, JSON.stringify(db, null, 2) + "\n", "utf8");
-  });
-  await writeQueue;
-  return result;
-}
-
-function withCompany(row: StoredCase, companies: StoredCompany[]): LegalCase {
-  const company = companies.find((item) => item.id === row.company_id);
-  return { ...row, company: company ? { id: company.id, name: company.name, plan: company.plan } : null };
+function mapCase(row: RowDataPacket): LegalCase {
+  return { id: row.id, case_code: row.case_code, status: row.status, channel: row.channel,
+    sender_registered: Boolean(row.sender_registered), plan: row.plan, deadline: row.deadline, notes: row.notes,
+    submitted_at: row.submitted_at, updated_at: row.updated_at, company_id: row.company_id,
+    company: row.company_id ? { id: row.company_id, name: row.company_name, plan: row.company_plan } : null };
 }
 
 export async function listCompanies(): Promise<Company[]> {
-  const db = await readDb();
-  return db.companies.map((company) => ({ ...company, cases_count: db.cases.filter((item) => item.company_id === company.id).length }));
+  const [rows] = await db.query<RowDataPacket[]>(`${COMPANY_SELECT} GROUP BY c.id ORDER BY c.created_at DESC`);
+  return rows.map((row) => ({ ...row, cases_count: Number(row.cases_count) } as Company));
 }
 
 export async function getCompany(id: string): Promise<Company | null> {
-  const db = await readDb();
-  const company = db.companies.find((item) => item.id === id);
-  return company ? { ...company, cases_count: db.cases.filter((item) => item.company_id === id).length } : null;
+  const [rows] = await db.execute<RowDataPacket[]>(`${COMPANY_SELECT} WHERE c.id = ? GROUP BY c.id LIMIT 1`, [id]);
+  return rows[0] ? ({ ...rows[0], cases_count: Number(rows[0].cases_count) } as Company) : null;
 }
 
-export async function createCompany(input: Omit<Company, "id" | "created_at" | "cases_count">): Promise<Company> {
-  return mutate((db) => {
-    const company: StoredCompany = { ...input, id: crypto.randomUUID(), created_at: new Date().toISOString() };
-    db.companies.unshift(company);
-    return { ...company, cases_count: 0 };
-  });
+export async function createCompany(input: CompanyInput): Promise<Company> {
+  const id = crypto.randomUUID();
+  await db.execute<ResultSetHeader>(`INSERT INTO companies (id, name, cnpj, contact_email, contact_phone, plan, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, input.name, input.cnpj, input.contact_email, input.contact_phone, input.plan, input.notes]);
+  return (await getCompany(id))!;
 }
 
-export async function updateCompany(id: string, input: Partial<StoredCompany>): Promise<Company | null> {
-  return mutate((db) => {
-    const index = db.companies.findIndex((item) => item.id === id);
-    if (index < 0) return null;
-    db.companies[index] = { ...db.companies[index], ...input, id };
-    return { ...db.companies[index], cases_count: db.cases.filter((item) => item.company_id === id).length };
-  });
+export async function updateCompany(id: string, input: Partial<CompanyInput>): Promise<Company | null> {
+  const allowed = new Set(["name", "cnpj", "contact_email", "contact_phone", "plan", "notes"]);
+  const fields = (Object.keys(input) as (keyof CompanyInput)[]).filter((field) => allowed.has(field));
+  if (!fields.length) return getCompany(id);
+  const [result] = await db.execute<ResultSetHeader>(`UPDATE companies SET ${fields.map((field) => `\`${field}\` = ?`).join(", ")} WHERE id = ?`,
+    [...fields.map((field) => input[field]), id]);
+  return result.affectedRows ? getCompany(id) : null;
 }
 
 export async function deleteCompany(id: string): Promise<boolean> {
-  return mutate((db) => {
-    const before = db.companies.length;
-    db.companies = db.companies.filter((item) => item.id !== id);
-    db.cases = db.cases.map((item) => item.company_id === id ? { ...item, company_id: null } : item);
-    return before !== db.companies.length;
-  });
+  const [result] = await db.execute<ResultSetHeader>("DELETE FROM companies WHERE id = ?", [id]);
+  return result.affectedRows > 0;
 }
 
 export async function listCases(): Promise<LegalCase[]> {
-  const db = await readDb();
-  return db.cases.map((item) => withCompany(item, db.companies));
+  const [rows] = await db.query<RowDataPacket[]>(`${CASE_SELECT} ORDER BY lc.submitted_at DESC`);
+  return rows.map(mapCase);
 }
 
 export async function getCase(id: string): Promise<LegalCase | null> {
-  const db = await readDb();
-  const row = db.cases.find((item) => item.id === id);
-  return row ? withCompany(row, db.companies) : null;
+  const [rows] = await db.execute<RowDataPacket[]>(`${CASE_SELECT} WHERE lc.id = ? LIMIT 1`, [id]);
+  return rows[0] ? mapCase(rows[0]) : null;
 }
 
 export async function createCase(input: Omit<LegalCase, "id" | "company" | "submitted_at" | "updated_at">): Promise<LegalCase> {
-  return mutate((db) => {
-    const now = new Date().toISOString();
-    const row: StoredCase = { ...input, id: crypto.randomUUID(), submitted_at: now, updated_at: now };
-    db.cases.unshift(row);
-    return withCompany(row, db.companies);
-  });
+  const id = crypto.randomUUID();
+  await db.execute<ResultSetHeader>(`INSERT INTO legal_cases (id, case_code, status, channel, sender_registered, plan, deadline, notes, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, input.case_code, input.status, input.channel, input.sender_registered, input.plan, input.deadline, input.notes, input.company_id]);
+  return (await getCase(id))!;
 }
 
-export async function updateCase(id: string, input: Partial<{ case_code: string; status: CaseStatus; channel: CaseChannel; company_id: string | null; plan: string | null; deadline: string | null; notes: string | null; sender_registered: boolean }>): Promise<LegalCase | null> {
-  return mutate((db) => {
-    const index = db.cases.findIndex((item) => item.id === id);
-    if (index < 0) return null;
-    db.cases[index] = { ...db.cases[index], ...input, updated_at: new Date().toISOString() };
-    return withCompany(db.cases[index], db.companies);
-  });
+type CaseUpdate = Partial<{ case_code: string; status: CaseStatus; channel: CaseChannel; company_id: string | null; plan: string | null; deadline: string | null; notes: string | null; sender_registered: boolean }>;
+
+export async function updateCase(id: string, input: CaseUpdate): Promise<LegalCase | null> {
+  const allowed = new Set(["case_code", "status", "channel", "company_id", "plan", "deadline", "notes", "sender_registered"]);
+  const fields = (Object.keys(input) as (keyof CaseUpdate)[]).filter((field) => allowed.has(field));
+  if (!fields.length) return getCase(id);
+  const [result] = await db.execute<ResultSetHeader>(`UPDATE legal_cases SET ${fields.map((field) => `\`${field}\` = ?`).join(", ")} WHERE id = ?`,
+    [...fields.map((field) => input[field]), id]);
+  return result.affectedRows ? getCase(id) : null;
 }
 
 export async function deleteCase(id: string): Promise<boolean> {
-  return mutate((db) => {
-    const before = db.cases.length;
-    db.cases = db.cases.filter((item) => item.id !== id);
-    return before !== db.cases.length;
-  });
+  const [result] = await db.execute<ResultSetHeader>("DELETE FROM legal_cases WHERE id = ?", [id]);
+  return result.affectedRows > 0;
 }
 
-export async function findUser(email: string) { const db = await readDb(); return db.users.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null; }
-export async function createUser(input: Omit<StoredUser, "id">) { return mutate((db) => { const user = { ...input, id: crypto.randomUUID() }; db.users.push(user); return user; }); }
+export async function findUser(email: string): Promise<UserRow | null> {
+  const [rows] = await db.execute<UserRow[]>("SELECT id, name, email, password_hash FROM users WHERE email = ? LIMIT 1", [email.toLowerCase()]);
+  return rows[0] ?? null;
+}
+
+export async function createUser(input: { name: string; email: string; password: string }): Promise<UserRow> {
+  const id = crypto.randomUUID();
+  await db.execute<ResultSetHeader>("INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)",
+    [id, input.name, input.email.toLowerCase(), hashPassword(input.password)]);
+  return (await findUser(input.email))!;
+}

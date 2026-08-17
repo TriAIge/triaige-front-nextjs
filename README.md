@@ -1,6 +1,6 @@
 # triAIge (Next.js + API Node.js)
 
-LegalTech AI com front-end e API REST no mesmo projeto. O backend usa os Route Handlers do Next.js no runtime Node.js e persiste os dados locais em `data/db.json`.
+LegalTech AI com front-end e API REST no mesmo projeto. O backend usa os Route Handlers do Next.js no runtime Node.js e persiste os dados no MySQL.
 
 ## Rodando localmente
 
@@ -28,4 +28,10 @@ Acesse http://localhost:3000
 - `POST /api/auth/signup`
 - `GET /api/health`
 
-O armazenamento JSON e a autenticação demonstrativa são adequados para desenvolvimento local. Para produção, substitua-os por banco de dados, hash de senha, sessão segura e controle de acesso.
+## Banco MySQL
+
+1. Copie `.env.example` para `.env.local` e preencha a conexão recebida.
+2. Execute `database/schema.sql` no servidor MySQL.
+3. Inicie com `npm run dev`.
+
+Todas as operações usam consultas preparadas (`?`) no backend. As senhas são armazenadas com `scrypt`; para produção, ainda é recomendado complementar a autenticação com cookies de sessão `HttpOnly` e controle de acesso.
