@@ -5,6 +5,8 @@ export const PLANS = ["Starter", "Profissional", "Enterprise"] as const;
 export type CaseStatus = (typeof CASE_STATUSES)[number];
 export type CaseChannel = (typeof CASE_CHANNELS)[number];
 
+export type CompanyLifecycle = "ativa" | "onboarding" | "inativa";
+
 export type Company = {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export type Company = {
   notes: string | null;
   created_at: string;
   cases_count: number;
+  /** Present in mock mode; optional when loading from API. */
+  lifecycle_status?: CompanyLifecycle;
 };
 
 export type CompanySummary = Pick<Company, "id" | "name" | "plan">;
