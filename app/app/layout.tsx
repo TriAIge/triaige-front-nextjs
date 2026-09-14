@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Inbox, Building2, LogOut, Menu, X } from "lucide-react";
+import { Inbox, Building2, LogOut, Menu, Shield, X } from "lucide-react";
 import { Toaster } from "sonner";
+import { api } from "@/lib/api-client";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -12,8 +13,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   const navItems = [
-    { to: "/app/cases", label: "Rastreamento de Cases", icon: Inbox },
+    { to: "/app/cases", label: "Visão Geral", icon: Inbox },
     { to: "/app/clients", label: "Escritórios Clientes", icon: Building2 },
+    { to: "/admin/cases", label: "Painel Admin", icon: Shield },
   ] as const;
 
   return (
@@ -24,9 +26,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
         <Link href="/app/cases" className="font-display text-lg tracking-tight">
-          <img src="/logo.png" alt="triAIge" className="h-10xl" />
+          <img src="/logo.png" alt="triAIge" className="h-10" />
         </Link>
-        <span className="hidden md:inline text-xs text-muted-foreground">Painel/Rastreamento de cases</span>
+        <span className="hidden md:inline text-xs text-muted-foreground">Painel / Visão geral da operação</span>
+        {api.useMockData ? (
+          <span className="hidden sm:inline text-[10px] uppercase tracking-[0.2em] text-brand border border-brand/30 bg-brand/10 px-2 py-1 rounded-md">
+            Mock data
+          </span>
+        ) : null}
         <div className="ml-auto flex items-center gap-3">
           <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]">demo@triaige.ai</span>
           <button
@@ -44,7 +51,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         >
           <nav className="flex flex-col gap-1">
             {navItems.map((item) => {
-              const active = pathname.startsWith(item.to);
+              const active =
+                item.to.startsWith("/admin")
+                  ? pathname.startsWith("/admin")
+                  : pathname.startsWith(item.to);
               const Icon = item.icon;
               return (
                 <Link
@@ -72,9 +82,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 md:ml-0">
-          {children}
-        </main>
+        <main className="flex-1 min-w-0 md:ml-0">{children}</main>
       </div>
     </div>
   );
