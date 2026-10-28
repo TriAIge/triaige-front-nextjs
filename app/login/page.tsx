@@ -14,6 +14,8 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [email, setEmail] = useState(mode === "signin" ? "demo@triaige.ai" : "");
   const [password, setPassword] = useState(mode === "signin" ? "demo123" : "");
 
@@ -21,10 +23,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = await api.auth(mode, { name, email, password });
-      localStorage.setItem("triaige_session", JSON.stringify(result));
+      const payload: Record<string, string> =
+        mode === "signin" ? { email, password } : { name, email, password, company, job_title: jobTitle };
+      const { user } = await api.auth(mode, payload);
       toast.success(mode === "signin" ? "Bem-vindo de volta" : "Conta criada");
-      router.push("/app/cases");
+      const areas = user.role === "firm_user" ? ["/portal"] : ["/admin", "/app"];
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && areas.some((area) => next.startsWith(area)) ? next : `${areas[0]}/cases`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível entrar."); }
     finally { setLoading(false); }
   }
@@ -60,8 +65,8 @@ export default function LoginPage() {
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {mode === "signin"
-                ? "Demo: clique para entrar no painel."
-                : "Demo: cadastro sem backend."}
+                ? "Acesse o painel da operação ou o portal do seu escritório."
+                : "Cadastre seu escritório para acompanhar seus casos."}
             </p>
           </div>
 
@@ -85,10 +90,10 @@ export default function LoginPage() {
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
                     <Field icon={<Building2 className="size-4" />} label="Empresa">
-                      <input placeholder="Andrade Advogados" className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
+                      <input required value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Andrade Advogados" className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
                     </Field>
                     <Field icon={<Briefcase className="size-4" />} label="Cargo">
-                      <input placeholder="Sócia" className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
+                      <input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Sócia" className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 text-sm" />
                     </Field>
                   </div>
                 </>
@@ -111,7 +116,7 @@ export default function LoginPage() {
               </button>
 
               <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-                Acesso demo: demo@triaige.ai · senha demo123.
+                Acesso demo: demo@triaige.ai (admin) ou portal@triaige.ai (escritório) · senha demo123.
               </p>
             </form>
           </div>

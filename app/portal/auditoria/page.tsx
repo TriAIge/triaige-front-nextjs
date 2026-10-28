@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
-import type { PortalAuditEvent } from "@/lib/mock-data";
+import type { PortalAuditEvent } from "@/lib/types";
 
 function fmtDate(d: string) {
   const date = new Date(d);
@@ -55,11 +55,7 @@ export default function PortalAuditoriaPage() {
             <Loader2 className="size-4 animate-spin" /> Carregando...
           </div>
         ) : items.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">
-            {api.useMockData
-              ? "Nenhum evento encontrado."
-              : "Sem API de auditoria do portal ainda. Ative NEXT_PUBLIC_USE_MOCK_DATA=true para ver o mock."}
-          </div>
+          <div className="p-10 text-center text-sm text-muted-foreground">Nenhum evento encontrado.</div>
         ) : (
           items.map((e) => (
             <div key={e.id} className="grid grid-cols-[1fr_1.2fr_2fr] gap-3 px-4 py-3 text-sm items-center border-b border-border/60">

@@ -5,9 +5,9 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ChartCanvas } from "@/components/ChartCanvas";
 import { api } from "@/lib/api-client";
-import { MOCK_BUSINESS_METRICS } from "@/lib/mock-data";
+import type { BusinessMetrics } from "@/lib/types";
 
-type Metrics = typeof MOCK_BUSINESS_METRICS;
+type Metrics = BusinessMetrics;
 
 export default function NegocioPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -144,13 +144,13 @@ export default function NegocioPage() {
       {loading ? (
         <Loading />
       ) : unavailable || !metrics ? (
-        <EmptyApi hint="Ative NEXT_PUBLIC_USE_MOCK_DATA=true para visualizar dados de demonstração." />
+        <EmptyApi hint="Não foi possível carregar os indicadores. Tente novamente em instantes." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <MetricCard label="Casos processados" value={String(metrics.casesProcessed)} sub={`vs. ${metrics.casesProcessedPrev} no período anterior`} />
             <MetricCard label="Tempo médio de triagem" value={metrics.avgTriage} sub="Todos os escritórios" />
-            <MetricCard label="Automação ponta a ponta" value={metrics.automationRate} sub="Casos sem intervenção até validação" />
+            <MetricCard label="Automação ponta a ponta" value={metrics.automationRate} sub="Sessões finalizadas com análise concluída" />
             <MetricCard label="Escritórios ativos" value={String(metrics.activeOffices)} sub={`${metrics.newContracts} novos contratos no período`} />
           </div>
 

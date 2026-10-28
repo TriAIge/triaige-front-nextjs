@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { maskCnpj, maskPhone } from "@/lib/masks";
 import type { Company, CompanyLifecycle } from "@/lib/types";
 import { PLANS } from "@/lib/types";
 
@@ -17,6 +18,12 @@ const PLAN_META: Record<string, string> = {
   Profissional: "border-sky-500/30 bg-sky-500/10 text-sky-300",
   Starter: "border-border bg-secondary/50 text-muted-foreground",
 };
+
+function formatCnpj(cnpj: string | null) {
+  if (!cnpj) return null;
+  const masked = maskCnpj(cnpj);
+  return masked || null;
+}
 
 function resolveLifecycle(c: Company): CompanyLifecycle {
   if (c.lifecycle_status) return c.lifecycle_status;
@@ -42,10 +49,11 @@ export default function ClientsPage() {
   const filtered = useMemo(() => {
     if (!search) return items;
     const q = search.toLowerCase();
+    const digits = search.replace(/\D/g, "");
     return items.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        (c.cnpj ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 && (c.cnpj ?? "").replace(/\D/g, "").includes(digits)) ||
         (c.contact_email ?? "").toLowerCase().includes(q),
     );
   }, [items, search]);
@@ -146,19 +154,19 @@ export default function ClientsPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="font-medium text-foreground truncate">{c.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{c.cnpj || "CNPJ não informado"}</div>
+                      <div className="text-[11px] text-muted-foreground">{formatCnpj(c.cnpj) ?? "CNPJ não informado"}</div>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] ${PLAN_META[c.plan] ?? PLAN_META.Starter}`}>
-                      {c.plan}
+                      {c.plan || "Sem plano"}
                     </span>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] ${lifeMeta.cls}`}>{lifeMeta.label}</span>
                   </div>
                 </div>
                 <div className="space-y-1.5 text-sm">
                   <Line label="Email" value={c.contact_email || "—"} />
-                  <Line label="Telefone" value={c.contact_phone || "—"} />
+                  <Line label="Telefone" value={c.contact_phone ? maskPhone(c.contact_phone) : "—"} />
                   <Line label="Cases" value={String(c.cases_count)} />
                 </div>
                 {c.notes ? (
@@ -208,10 +216,10 @@ function CompanyForm({
   onSave: (payload: Omit<Company, "id" | "created_at" | "cases_count"> & { lifecycle_status?: CompanyLifecycle }) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [cnpj, setCnpj] = useState(initial?.cnpj ?? "");
+  const [cnpj, setCnpj] = useState(formatCnpj(initial?.cnpj ?? null) ?? "");
   const [email, setEmail] = useState(initial?.contact_email ?? "");
-  const [phone, setPhone] = useState(initial?.contact_phone ?? "");
-  const [plan, setPlan] = useState(initial?.plan ?? "Starter");
+  const [phone, setPhone] = useState(initial?.contact_phone ? maskPhone(initial.contact_phone) : "");
+  const [plan, setPlan] = useState(initial?.plan || "Starter");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [lifecycle, setLifecycle] = useState<CompanyLifecycle>(resolveLifecycle(initial ?? ({ notes: null } as Company)));
 
@@ -243,7 +251,15 @@ function CompanyForm({
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="CNPJ">
-              <input value={cnpj} onChange={(e) => setCnpj(e.target.value)} className="modal-input" placeholder="00.000.000/0000-00" />
+              <input
+                value={cnpj}
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={18}
+                onChange={(e) => setCnpj(maskCnpj(e.target.value))}
+                className="modal-input"
+                placeholder="00.000.000/0000-00"
+              />
             </Field>
             <Field label="Plano">
               <select value={plan} onChange={(e) => setPlan(e.target.value)} className="modal-input">
@@ -260,7 +276,15 @@ function CompanyForm({
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="modal-input" placeholder="contato@escritorio.com" />
             </Field>
             <Field label="Telefone">
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="modal-input" placeholder="(11) 90000-0000" />
+              <input
+                value={phone}
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={15}
+                onChange={(e) => setPhone(maskPhone(e.target.value))}
+                className="modal-input"
+                placeholder="(11) 90000-0000"
+              />
             </Field>
           </div>
           <Field label="Status do ciclo">

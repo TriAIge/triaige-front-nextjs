@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
@@ -14,7 +14,9 @@ import {
   X,
 } from "lucide-react";
 import { Toaster } from "sonner";
+import { ApiStatusCard, SessionLoading } from "@/components/LayoutParts";
 import { api } from "@/lib/api-client";
+import { useSession } from "@/lib/use-session";
 
 const SUPPORT_EMBED_URL = "https://app.pipefy.com/public/form/XtNsaW3o?embedded=true";
 
@@ -36,21 +38,13 @@ const navGroups = [
 ] as const;
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [firmName, setFirmName] = useState("Escritório");
-  const [plan, setPlan] = useState("—");
-  const [email, setEmail] = useState("");
-
-  useEffect(() => {
-    void api.portal.session().then((s) => {
-      setFirmName(s.firmName);
-      setPlan(s.plan);
-      setEmail(s.userEmail);
-    });
-  }, []);
+  const { session, signout } = useSession("firm");
+  const firmName = session?.company?.name ?? "Escritório";
+  const plan = session?.company?.plan || "—";
+  const email = session?.user.email ?? "";
 
   useEffect(() => {
     if (!supportOpen) return;
@@ -91,7 +85,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <span className="hidden sm:inline">Suporte</span>
           </button>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => void signout()}
             className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm text-foreground hover:bg-secondary transition"
           >
             <LogOut className="size-4" /> Sair
@@ -146,17 +140,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             >
               <Headset className="size-4" /> Falar com suporte
             </button>
-            <div className="p-3 rounded-xl border border-border bg-secondary/40">
-              <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">Status API</div>
-              <div className="flex items-center gap-2 text-xs text-foreground">
-                <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-                Operacional
-              </div>
-            </div>
+            <ApiStatusCard />
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 md:ml-0">{children}</main>
+        <main className="flex-1 min-w-0 md:ml-0">{session ? children : <SessionLoading />}</main>
       </div>
 
       {supportOpen ? (

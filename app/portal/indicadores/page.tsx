@@ -5,9 +5,9 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ChartCanvas } from "@/components/ChartCanvas";
 import { api } from "@/lib/api-client";
-import { MOCK_PORTAL_METRICS } from "@/lib/mock-data";
+import type { MetricPeriod, PortalMetrics } from "@/lib/types";
 
-type Metrics = typeof MOCK_PORTAL_METRICS;
+type Metrics = PortalMetrics;
 type Period = "7" | "30" | "90";
 
 export default function PortalIndicadoresPage() {
@@ -17,15 +17,17 @@ export default function PortalIndicadoresPage() {
   const [period, setPeriod] = useState<Period>("30");
 
   useEffect(() => {
+    setLoading(true);
+    setUnavailable(false);
     api.portal
-      .metrics()
+      .metrics(Number(period) as MetricPeriod)
       .then(setMetrics)
       .catch((error) => {
         setUnavailable(true);
         toast.error(error instanceof Error ? error.message : "Falha ao carregar indicadores.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [period]);
 
   const volumeChart = useMemo(
     () =>
@@ -173,7 +175,7 @@ export default function PortalIndicadoresPage() {
       ) : unavailable || !metrics ? (
         <div className="rounded-xl border border-border bg-card/60 p-10 text-center">
           <div className="font-medium">Dados indisponíveis</div>
-          <p className="text-sm text-muted-foreground mt-2">Ative NEXT_PUBLIC_USE_MOCK_DATA=true para ver o mock do portal.</p>
+          <p className="text-sm text-muted-foreground mt-2">Não foi possível carregar os indicadores. Tente novamente em instantes.</p>
         </div>
       ) : (
         <>
@@ -190,7 +192,7 @@ export default function PortalIndicadoresPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4 mb-4">
-            <Panel title="Volume de casos — recebidos vs. concluídos" sub="Últimos 30 dias">
+            <Panel title="Volume de casos — recebidos vs. concluídos" sub={`Últimos ${period} dias`}>
               {volumeChart ? <ChartCanvas config={volumeChart} /> : null}
             </Panel>
             <Panel title="Distribuição por status" sub="Casos no período selecionado">

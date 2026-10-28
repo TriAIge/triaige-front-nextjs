@@ -1,9 +1,11 @@
-import type { CaseChannel, CaseStatus, Company, LegalCase } from "./types";
+import type {
+  ApiCredential, AuditEvent, BusinessMetrics, CaseStatus, Company, CompanyLifecycle, LegalCase, LgpdSummary,
+  PortalAuditEvent, PortalCaseDetail, PortalCredential, PortalMetrics, PortalRecipient, PortalSession, SessionInfo,
+  SessionStatus, TechHealth,
+} from "./types";
 
 const now = Date.now();
 const h = (n: number) => new Date(now - n * 3600_000).toISOString();
-
-export type CompanyLifecycle = "ativa" | "onboarding" | "inativa";
 
 export type MockCompany = Company & {
   lifecycle_status: CompanyLifecycle;
@@ -13,74 +15,62 @@ export const MOCK_COMPANIES: MockCompany[] = [
   {
     id: "c1",
     name: "Andrade & Sócios Advogados",
-    cnpj: "12.345.678/0001-90",
+    cnpj: "12345678000190",
     contact_email: "contato@andradesocios.com.br",
     contact_phone: "(11) 4002-8922",
     plan: "Profissional",
     notes: "Foco em trabalhista e cível",
     created_at: h(720),
-    cases_count: 142,
+    cases_count: 4,
     lifecycle_status: "ativa",
   },
   {
     id: "c2",
     name: "Silva Pereira Jurídico",
-    cnpj: "98.765.432/0001-10",
+    cnpj: "98765432000110",
     contact_email: "juridico@silvapereira.com.br",
     contact_phone: "(21) 3030-1010",
     plan: "Enterprise",
     notes: "Cliente âncora — integração via API com CRM proprietário",
     created_at: h(1400),
-    cases_count: 87,
+    cases_count: 2,
     lifecycle_status: "ativa",
   },
   {
     id: "c3",
     name: "Costa & Lima Consultoria Legal",
-    cnpj: "11.222.333/0001-44",
+    cnpj: "11222333000144",
     contact_email: "contato@costalima.adv.br",
     contact_phone: "(51) 3500-2200",
     plan: "Starter",
     notes: "Onboarding em andamento",
     created_at: h(96),
-    cases_count: 64,
+    cases_count: 1,
     lifecycle_status: "onboarding",
   },
   {
     id: "c4",
     name: "Mendonça Tributário",
-    cnpj: "22.333.444/0001-55",
+    cnpj: "22333444000155",
     contact_email: "contato@mendoncatrib.com.br",
     contact_phone: "(31) 2121-7878",
     plan: "Profissional",
     notes: "Foco em contencioso tributário",
     created_at: h(500),
-    cases_count: 19,
+    cases_count: 1,
     lifecycle_status: "ativa",
   },
   {
     id: "c5",
     name: "Vasconcelos Advocacia",
-    cnpj: "77.888.999/0001-22",
+    cnpj: "77888999000122",
     contact_email: "novos@vasconcelos.com",
     contact_phone: "(41) 2200-3344",
-    plan: "Profissional",
+    plan: "",
     notes: null,
     created_at: h(800),
-    cases_count: 38,
-    lifecycle_status: "ativa",
-  },
-  {
-    id: "c6",
-    name: "Ribeiro & Partners",
-    cnpj: "11.444.777/0001-33",
-    contact_email: "hello@ribeiro.partners",
-    contact_phone: "(11) 5577-8800",
-    plan: "Enterprise",
-    notes: "Jurídico multinacional — multi-idioma.",
-    created_at: h(2000),
-    cases_count: 211,
-    lifecycle_status: "ativa",
+    cases_count: 0,
+    lifecycle_status: "inativa",
   },
 ];
 
@@ -89,194 +79,112 @@ function companySummary(id: string) {
   return c ? { id: c.id, name: c.name, plan: c.plan } : null;
 }
 
-export const MOCK_CASES: LegalCase[] = [
-  {
-    id: "1",
-    case_code: "TR-3391",
-    status: "relatorio_gerado",
-    channel: "API",
-    sender_registered: true,
-    plan: "Profissional",
-    deadline: h(-24),
-    notes: "Triagem trabalhista concluída — relatório anexado.",
-    submitted_at: h(2),
-    updated_at: h(1),
-    company_id: "c1",
-    company: companySummary("c1"),
-  },
-  {
-    id: "2",
-    case_code: "TR-3390",
-    status: "em_processamento",
-    channel: "WhatsApp",
-    sender_registered: true,
-    plan: "Enterprise",
-    deadline: h(-48),
-    notes: "Cliente solicitou priorização.",
-    submitted_at: h(3),
-    updated_at: h(2),
-    company_id: "c2",
-    company: companySummary("c2"),
-  },
-  {
-    id: "3",
-    case_code: "TR-3389",
-    status: "falha",
-    channel: "CRM",
-    sender_registered: true,
-    plan: "Starter",
-    deadline: null,
-    notes: "Falha na integração com endpoint do cliente.",
-    submitted_at: h(26),
-    updated_at: h(25),
-    company_id: "c3",
-    company: companySummary("c3"),
-  },
-  {
-    id: "4",
-    case_code: "TR-3388",
-    status: "em_validacao",
-    channel: "Web",
-    sender_registered: false,
-    plan: "Profissional",
-    deadline: h(-12),
-    notes: "Documentação parcial — aguardando confirmação.",
-    submitted_at: h(30),
-    updated_at: h(28),
-    company_id: "c4",
-    company: companySummary("c4"),
-  },
-  {
-    id: "5",
-    case_code: "TR-3387",
-    status: "relatorio_gerado",
-    channel: "API",
-    sender_registered: true,
-    plan: "Profissional",
-    deadline: h(-72),
-    notes: null,
-    submitted_at: h(48),
-    updated_at: h(46),
-    company_id: "c5",
-    company: companySummary("c5"),
-  },
-  {
-    id: "6",
-    case_code: "TR-3386",
-    status: "recebido",
-    channel: "WhatsApp",
-    sender_registered: true,
-    plan: "Enterprise",
-    deadline: h(-96),
-    notes: "Caso de família — divórcio consensual.",
-    submitted_at: h(10),
-    updated_at: h(10),
-    company_id: "c2",
-    company: companySummary("c2"),
-  },
-  {
-    id: "7",
-    case_code: "TR-3385",
-    status: "enviado",
-    channel: "API",
-    sender_registered: true,
-    plan: "Profissional",
-    deadline: h(-120),
-    notes: null,
-    submitted_at: h(26),
-    updated_at: h(24),
-    company_id: "c1",
-    company: companySummary("c1"),
-  },
-  {
-    id: "8",
-    case_code: "TR-3384",
-    status: "enviado",
-    channel: "Web",
-    sender_registered: true,
-    plan: "Enterprise",
-    deadline: h(-200),
-    notes: "Análise contratual finalizada.",
-    submitted_at: h(30),
-    updated_at: h(28),
-    company_id: "c6",
-    company: companySummary("c6"),
-  },
-];
+function mockCase(
+  id: string, companyId: string, protocol: string, title: string, area: string | null, caseType: string | null,
+  status: CaseStatus, pipelineStatus: SessionStatus, submittedHoursAgo: number, updatedHoursAgo: number,
+): LegalCase {
+  return {
+    id, protocol, title, area, case_type: caseType, status, pipeline_status: pipelineStatus,
+    correlation_id: `corr-${id.padStart(4, "0")}`, sender_registered: true,
+    submitted_at: h(submittedHoursAgo), updated_at: h(updatedHoursAgo),
+    company_id: companyId, company: companySummary(companyId),
+  };
+}
 
-export type ApiCredential = {
-  id: string;
-  company_name: string;
-  credential: string;
-  status: "ativa" | "expirando" | "revogada";
-  last_used: string;
-  expires_at: string;
-};
+export const MOCK_CASES: LegalCase[] = [
+  mockCase("1", "c1", "TRI-2026-000101", "Rescisão indireta — horas extras", "Trabalhista", "Rescisão indireta", "enviado", "ANALYSIS_COMPLETED", 2, 1),
+  mockCase("2", "c1", "TRI-2026-000102", "Indenização por negativação indevida", "Cível", "Danos morais", "falha", "ANALYSIS_FAILED", 26, 25),
+  mockCase("3", "c1", "TRI-2026-000103", "Execução fiscal — ICMS", "Tributário", "Execução fiscal", "em_processamento", "ANALYZING", 3, 1),
+  mockCase("4", "c1", "TRI-2026-000104", "Cobrança indevida de tarifa bancária", null, null, "recebido", "RECEIVING_DOCUMENTS", 1, 1),
+  mockCase("5", "c2", "TRI-2026-000105", "Revisão de contrato de fornecimento", "Contratual", "Revisão contratual", "em_processamento", "QUEUED_FOR_PROCESSING", 5, 4),
+  mockCase("6", "c2", "TRI-2026-000099", "Vício de produto — eletrodoméstico", "Consumidor", "Vício do produto", "relatorio_gerado", "ANALYSIS_COMPLETED", 48, 46),
+  mockCase("7", "c3", "TRI-2026-000098", "Ação de despejo por falta de pagamento", "Cível", "Despejo", "relatorio_gerado", "ANALYSIS_COMPLETED", 30, 28),
+  mockCase("8", "c4", "TRI-2026-000097", "Compensação de créditos de PIS/COFINS", "Tributário", "Compensação tributária", "falha", "FAILED", 70, 69),
+];
 
 export const MOCK_API_CREDENTIALS: ApiCredential[] = [
   {
     id: "k1",
-    company_name: "Andrade & Sócios",
-    credential: "api-key-a3f1",
+    company_id: "c1",
+    company_name: "Andrade & Sócios Advogados",
+    credential: "trg_live_a3f…",
     status: "ativa",
     last_used: h(2),
-    expires_at: "2027-03-05",
+    expires_at: "",
   },
   {
     id: "k2",
+    company_id: "c2",
     company_name: "Silva Pereira Jurídico",
-    credential: "api-key-9c02",
+    credential: "trg_live_9c0…",
     status: "ativa",
     last_used: h(3),
-    expires_at: "2026-11-18",
+    expires_at: "2027-11-18T00:00:00.000Z",
   },
   {
     id: "k3",
-    company_name: "Costa & Lima Consultoria",
-    credential: "api-key-77bd",
+    company_id: "c3",
+    company_name: "Costa & Lima Consultoria Legal",
+    credential: "trg_live_77b…",
     status: "expirando",
     last_used: h(26),
-    expires_at: "2026-09-15",
+    expires_at: new Date(now + 10 * 86_400_000).toISOString(),
+  },
+  {
+    id: "k4",
+    company_id: "c5",
+    company_name: "Vasconcelos Advocacia",
+    credential: "Integração legada",
+    status: "inativa",
+    last_used: h(900),
+    expires_at: "",
   },
 ];
-
-export type AuditEvent = {
-  id: string;
-  at: string;
-  company_name: string;
-  event: string;
-  correlation_id: string;
-  detail: string;
-};
 
 export const MOCK_AUDIT_EVENTS: AuditEvent[] = [
   {
     id: "a1",
     at: h(1),
-    company_name: "Andrade & Sócios",
-    event: "Relatório entregue",
-    correlation_id: "c-8f21a",
-    detail: '{"channel":"email","status":"OK"}',
+    company_name: "Andrade & Sócios Advogados",
+    event: "Análise de IA concluída",
+    event_type: "ai_analysis_completed",
+    source: "orchestrator",
+    correlation_id: "corr-0001",
+    detail: "TRI-2026-000101 · Relatório gerado",
   },
   {
     id: "a2",
     at: h(25),
-    company_name: "Costa & Lima",
-    event: "Falha de envio",
-    correlation_id: "c-40b7e",
-    detail: '{"provider":"crm","error":"timeout"}',
+    company_name: "Andrade & Sócios Advogados",
+    event: "Falha na análise de IA",
+    event_type: "ai_analysis_failed",
+    source: "orchestrator",
+    correlation_id: "corr-0002",
+    detail: "TRI-2026-000102 · Timeout no mcp-ai",
   },
   {
     id: "a3",
     at: h(4),
     company_name: "Silva Pereira Jurídico",
-    event: "Recebimento",
-    correlation_id: "c-11d90",
-    detail: '{"channel":"WhatsApp","docs":3}',
+    event: "Recebimento finalizado",
+    event_type: "session_finalized",
+    source: "orchestrator",
+    correlation_id: "corr-0005",
+    detail: "TRI-2026-000105 · 2 documentos",
+  },
+  {
+    id: "a4",
+    at: h(96),
+    company_name: "Costa & Lima Consultoria Legal",
+    event: "Escritório cadastrado",
+    event_type: "law_firm_created",
+    source: "backoffice",
+    correlation_id: "",
+    detail: "Costa & Lima Consultoria Legal · por demo@triaige.ai",
   },
 ];
 
-export const MOCK_BUSINESS_METRICS = {
+export const MOCK_BUSINESS_METRICS: BusinessMetrics = {
   casesProcessed: 342,
   casesProcessedPrev: 290,
   avgTriage: "4min 12s",
@@ -298,7 +206,7 @@ export const MOCK_BUSINESS_METRICS = {
   },
 };
 
-export const MOCK_TECH_HEALTH = {
+export const MOCK_TECH_HEALTH: TechHealth = {
   apiUptime: "99,97%",
   smtpSuccess: "98,2%",
   smtpFailures: 7,
@@ -307,12 +215,12 @@ export const MOCK_TECH_HEALTH = {
   sqsStatus: "OK",
   sqsSub: "Sem acúmulo de mensagens",
   pipeline: {
-    labels: ["OCR", "Anonimização", "Classificação", "Resumo", "Prioridade/Jurisp.", "Geração relatório"],
-    values: [38, 22, 19, 54, 61, 17],
+    labels: ["Upload", "Finalização", "OCR", "Anonimização", "Agrupamento", "Resumo", "Análise IA"],
+    values: [2, 1, 38, 22, 6, 54, 61],
   },
 };
 
-export const MOCK_LGPD = {
+export const MOCK_LGPD: LgpdSummary = {
   originalsRemoved: "100%",
   dataIncidents: 0,
 };
@@ -320,60 +228,60 @@ export const MOCK_LGPD = {
 /** Portal do escritório — sessão mock (Andrade & Sócios = c1). */
 export const MOCK_PORTAL_FIRM_ID = "c1";
 
-export const MOCK_PORTAL_SESSION = {
+export const MOCK_PORTAL_SESSION: PortalSession = {
   firmId: MOCK_PORTAL_FIRM_ID,
   firmName: "Andrade & Sócios Advogados",
   plan: "Profissional",
   userEmail: "contato@andradesocios.com.br",
 };
 
-export type PortalTimelineStep = {
-  title: string;
-  meta: string;
-  status: "done" | "running" | "pending";
+export const MOCK_STAFF_SESSION: SessionInfo = {
+  user: { id: "u-admin", name: "Equipe triAIge", email: "ops@triaige.ai", role: "admin", job_title: "Operações" },
+  company: null,
 };
 
-export type PortalCaseDetail = {
-  caseId: string;
-  protocol: string;
-  area: string;
-  caseType: string;
-  criticality: string;
-  documents: { name: string; status: string }[];
-  delivery: { channel: string; recipient: string; at: string; status: string } | null;
-  timeline: PortalTimelineStep[];
+export const MOCK_FIRM_SESSION: SessionInfo = {
+  user: { id: "u-portal", name: "Ana Ribeiro", email: MOCK_PORTAL_SESSION.userEmail, role: "firm_user", job_title: "Sócia" },
+  company: { id: MOCK_PORTAL_FIRM_ID, name: MOCK_PORTAL_SESSION.firmName, plan: MOCK_PORTAL_SESSION.plan },
 };
+
+const at = (hoursAgo: number) => h(hoursAgo);
 
 export const MOCK_PORTAL_CASE_DETAILS: Record<string, PortalCaseDetail> = {
   "1": {
     caseId: "1",
-    protocol: "2026-000391",
+    protocol: "TRI-2026-000101",
+    title: "Rescisão indireta — horas extras",
     area: "Trabalhista",
     caseType: "Rescisão indireta",
-    criticality: "Média",
+    criticality: "Alta",
+    deadline: "28/10/2026",
+    summary:
+      "Empregado relata ausência de pagamento de horas extras por 18 meses e pede o reconhecimento da rescisão indireta. " +
+      "Há controles de ponto e holerites que sustentam o pedido.",
     documents: [
       { name: "Petição inicial.pdf", status: "Processado" },
       { name: "Comprovante_admissao.jpg", status: "Processado" },
     ],
     delivery: {
       channel: "e-mail",
-      recipient: "ana.***@andradesocios.com.br",
-      at: h(1.1),
+      recipient: "ana***@andradesocios.com.br",
+      at: at(1.1),
       status: "Entregue",
     },
     timeline: [
-      { title: "Recebimento e validação", meta: "09:12:03 → 09:12:04 · OK", status: "done" },
-      { title: "Anonimização de dados sensíveis", meta: "09:12:04 → 09:12:26 · OK", status: "done" },
-      { title: "OCR e normalização de texto", meta: "09:12:26 → 09:13:04 · OK", status: "done" },
-      { title: "Classificação do tipo de processo", meta: "09:13:04 → 09:13:19 · OK", status: "done" },
-      { title: "Resumo estruturado e prazos", meta: "09:13:19 → 09:14:02 · OK", status: "done" },
-      { title: "Consulta de jurisprudência", meta: "09:14:02 → 09:14:58 · 3 referências encontradas", status: "done" },
-      { title: "Geração e envio do relatório", meta: "09:14:58 → 09:15:12 · Entregue por e-mail", status: "done" },
+      { title: "Recebimento dos documentos", meta: "Concluído", status: "done", started_at: at(2), finished_at: at(1.95) },
+      { title: "OCR e normalização de texto", meta: "Concluído", status: "done", started_at: at(1.95), finished_at: at(1.8) },
+      { title: "Anonimização de dados sensíveis", meta: "Concluído", status: "done", started_at: at(1.8), finished_at: at(1.7) },
+      { title: "Agrupamento de anexos", meta: "Concluído", status: "done", started_at: at(1.7), finished_at: at(1.65) },
+      { title: "Resumo das evidências", meta: "Concluído", status: "done", started_at: at(1.65), finished_at: at(1.4) },
+      { title: "Análise jurídica por IA", meta: "Concluído", status: "done", started_at: at(1.4), finished_at: at(1.15) },
+      { title: "Envio do relatório", meta: "Concluído", status: "done", started_at: null, finished_at: at(1.1) },
     ],
   },
 };
 
-export const MOCK_PORTAL_METRICS = {
+export const MOCK_PORTAL_METRICS: PortalMetrics = {
   casesProcessed: 58,
   casesProcessedPrev: 49,
   avgTriage: "4min 08s",
@@ -385,21 +293,13 @@ export const MOCK_PORTAL_METRICS = {
     completed: [3, 3, 2, 4, 4, 5, 5, 5, 5, 6, 6],
   },
   statusDistribution: {
-    labels: ["Relatório gerado", "Em processamento", "Em validação", "Falha", "Recebido"],
-    values: [34, 6, 7, 3, 8],
+    labels: ["Enviado", "Relatório gerado", "Em processamento", "Falha", "Recebido"],
+    values: [30, 4, 13, 3, 8],
   },
   casesByArea: {
     labels: ["Trabalhista", "Cível", "Tributário", "Consumidor", "Contratual"],
     values: [22, 15, 9, 7, 5],
   },
-};
-
-export type PortalRecipient = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  preferred_channel: "E-mail" | "WhatsApp" | "CRM";
 };
 
 export const MOCK_PORTAL_RECIPIENTS: PortalRecipient[] = [
@@ -419,44 +319,37 @@ export const MOCK_PORTAL_RECIPIENTS: PortalRecipient[] = [
   },
 ];
 
-export type PortalAuditEvent = {
-  id: string;
-  at: string;
-  event: string;
-  description: string;
-};
-
 export const MOCK_PORTAL_AUDIT: PortalAuditEvent[] = [
   {
     id: "pa1",
     at: h(1),
-    event: "Relatório entregue",
-    description: "Relatório do caso #TR-3391 entregue por e-mail com sucesso.",
+    event: "Análise de IA concluída",
+    description: "Relatório do caso TRI-2026-000101 gerado.",
   },
   {
     id: "pa2",
     at: h(2),
-    event: "Caso recebido",
-    description: "Documento recebido via API e validado com sucesso.",
+    event: "Recebimento finalizado",
+    description: "Documentos do caso TRI-2026-000101 recebidos e enviados para processamento.",
   },
   {
     id: "pa3",
     at: h(25),
-    event: "Falha de envio",
-    description: "Não foi possível entregar o relatório do caso #TR-3389 (canal CRM).",
+    event: "Falha na análise de IA",
+    description: "A análise do caso TRI-2026-000102 falhou e será reavaliada pela equipe triAIge.",
   },
   {
     id: "pa4",
-    at: h(28),
-    event: "Em validação",
-    description: "Caso #TR-3388 aguardando revisão humana antes da entrega final.",
+    at: h(26),
+    event: "Sessão criada",
+    description: "Caso TRI-2026-000102 aberto via API.",
   },
 ];
 
-export const MOCK_PORTAL_CREDENTIAL = {
-  status: "ativa" as const,
+export const MOCK_PORTAL_CREDENTIAL: PortalCredential = {
+  status: "ativa",
   last_used: h(2),
-  expires_at: "2027-03-05",
+  expires_at: "",
 };
 
 export function cloneCompanies(): MockCompany[] {
@@ -470,11 +363,9 @@ export function cloneCases(): LegalCase[] {
   }));
 }
 
-export type CaseCreateInput = Omit<LegalCase, "id" | "company" | "submitted_at" | "updated_at">;
-export type CaseUpdateInput = Partial<Omit<LegalCase, "id" | "company" | "submitted_at">>;
 export type CompanyCreateInput = Omit<Company, "id" | "created_at" | "cases_count"> & {
   lifecycle_status?: CompanyLifecycle;
 };
 export type CompanyUpdateInput = Partial<CompanyCreateInput>;
 
-export type { CaseChannel, CaseStatus };
+export type { CaseStatus, CompanyLifecycle };

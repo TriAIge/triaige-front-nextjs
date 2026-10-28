@@ -5,12 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Inbox, Loader2, RefreshCw, Search, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
-import type { CaseChannel, CaseStatus, LegalCase } from "@/lib/types";
-import { CASE_CHANNELS, CASE_STATUSES } from "@/lib/types";
+import type { CaseStatus, LegalCase } from "@/lib/types";
+import { CASE_STATUSES } from "@/lib/types";
 
 const STATUS_META: Record<CaseStatus, { label: string; cls: string }> = {
   recebido: { label: "Recebido", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
-  em_validacao: { label: "Em validação", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
   em_processamento: { label: "Em processamento", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
   relatorio_gerado: { label: "Relatório gerado", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   enviado: { label: "Enviado", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
@@ -32,7 +31,7 @@ export default function PortalCasesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CaseStatus>("all");
-  const [channelFilter, setChannelFilter] = useState<"all" | CaseChannel>("all");
+  const [areaFilter, setAreaFilter] = useState<"all" | string>("all");
 
   const loadData = useCallback(async (notify = false) => {
     setLoading(true);
@@ -51,18 +50,23 @@ export default function PortalCasesPage() {
     void loadData();
   }, [loadData]);
 
+  const areas = useMemo(
+    () => [...new Set(cases.map((c) => c.area).filter((a): a is string => Boolean(a)))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [cases],
+  );
+
   const filtered = useMemo(
     () =>
       cases.filter((c) => {
         if (statusFilter !== "all" && c.status !== statusFilter) return false;
-        if (channelFilter !== "all" && c.channel !== channelFilter) return false;
+        if (areaFilter !== "all" && c.area !== areaFilter) return false;
         if (search) {
           const q = search.toLowerCase();
-          if (!c.case_code.toLowerCase().includes(q)) return false;
+          if (!`${c.protocol} ${c.title ?? ""}`.toLowerCase().includes(q)) return false;
         }
         return true;
       }),
-    [cases, statusFilter, channelFilter, search],
+    [cases, statusFilter, areaFilter, search],
   );
 
   const kpis = useMemo(() => {
@@ -70,7 +74,7 @@ export default function PortalCasesPage() {
     today.setHours(0, 0, 0, 0);
     return {
       recebidosHoje: cases.filter((c) => new Date(c.submitted_at) >= today).length,
-      emProc: cases.filter((c) => c.status === "em_processamento" || c.status === "em_validacao").length,
+      emProc: cases.filter((c) => c.status === "em_processamento").length,
       falhas: cases.filter((c) => c.status === "falha").length,
     };
   }, [cases]);
@@ -99,7 +103,7 @@ export default function PortalCasesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <Kpi icon={<Inbox className="size-5" />} label="Recebidos hoje" value={kpis.recebidosHoje} accent="text-sky-300" sub="Últimas 24h" />
         <Kpi icon={<Settings2 className="size-5" />} label="Em processamento" value={kpis.emProc} accent="text-amber-300" sub="Aguardando etapas de IA" />
-        <Kpi icon={<AlertTriangle className="size-5" />} label="Falhas de envio" value={kpis.falhas} accent="text-rose-300" sub="Relatório não entregue" />
+        <Kpi icon={<AlertTriangle className="size-5" />} label="Com falha" value={kpis.falhas} accent="text-rose-300" sub="Processamento ou análise interrompidos" />
       </div>
 
       <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-3 mb-4 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-end">
@@ -110,7 +114,7 @@ export default function PortalCasesPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ID do caso ou protocolo"
+              placeholder="Protocolo ou título"
               className="w-full bg-transparent outline-none text-sm"
             />
           </div>
@@ -131,16 +135,16 @@ export default function PortalCasesPage() {
           </select>
         </label>
         <label className="block">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Canal</span>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Área</span>
           <select
-            value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value as "all" | CaseChannel)}
+            value={areaFilter}
+            onChange={(e) => setAreaFilter(e.target.value)}
             className="mt-1 h-10 px-3 rounded-lg bg-secondary/60 border border-border text-sm outline-none focus:border-brand/60 w-full"
           >
-            <option value="all">Todos</option>
-            {CASE_CHANNELS.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            <option value="all">Todas</option>
+            {areas.map((a) => (
+              <option key={a} value={a}>
+                {a}
               </option>
             ))}
           </select>
@@ -148,11 +152,12 @@ export default function PortalCasesPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl overflow-hidden">
-        <div className="grid grid-cols-[1.2fr_1.3fr_1.2fr_0.8fr_1.2fr] gap-3 px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground border-b border-border bg-secondary/30">
+        <div className="grid grid-cols-[1.1fr_1.6fr_0.9fr_1.1fr_1fr_1.1fr] gap-3 px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground border-b border-border bg-secondary/30">
+          <div>Protocolo</div>
           <div>Caso</div>
+          <div>Área</div>
           <div>Data de envio</div>
           <div>Status</div>
-          <div>Canal</div>
           <div>Última atualização</div>
         </div>
         {loading ? (
@@ -168,14 +173,15 @@ export default function PortalCasesPage() {
               <Link
                 key={c.id}
                 href={`/portal/cases/${c.id}`}
-                className="grid grid-cols-[1.2fr_1.3fr_1.2fr_0.8fr_1.2fr] gap-3 px-4 py-3 text-sm items-center border-b border-border/60 hover:bg-secondary/40 transition"
+                className="grid grid-cols-[1.1fr_1.6fr_0.9fr_1.1fr_1fr_1.1fr] gap-3 px-4 py-3 text-sm items-center border-b border-border/60 hover:bg-secondary/40 transition"
               >
-                <div className="font-mono text-xs text-foreground">{c.case_code}</div>
+                <div className="font-mono text-xs text-foreground">{c.protocol}</div>
+                <div className="truncate">{c.title ?? <span className="text-muted-foreground italic">Sem título</span>}</div>
+                <div className="text-muted-foreground">{c.area ?? "—"}</div>
                 <div className="text-muted-foreground">{fmtDate(c.submitted_at)}</div>
                 <div>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] ${meta.cls}`}>{meta.label}</span>
                 </div>
-                <div className="text-muted-foreground">{c.channel}</div>
                 <div className="text-muted-foreground">{fmtDate(c.updated_at)}</div>
               </Link>
             );
