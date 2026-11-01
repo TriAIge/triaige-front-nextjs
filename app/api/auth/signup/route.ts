@@ -1,16 +1,25 @@
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { createUser, findUser } from "@/lib/db";
+import { createSession } from "@/lib/auth";
+import { findUser, signupFirmUser } from "@/lib/db";
+import { isMysqlError, jsonError, readJson, trimOrNull } from "@/lib/http";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  if (!body?.name?.trim() || !body?.email?.trim() || !body?.password) return NextResponse.json({ error: "Nome, email e senha são obrigatórios." }, { status: 400 });
-  if (body.password.length < 6) return NextResponse.json({ error: "A senha deve ter pelo menos 6 caracteres." }, { status: 400 });
-  if (await findUser(body.email)) return NextResponse.json({ error: "Este email já está cadastrado." }, { status: 409 });
-  const user = await createUser({ name: body.name.trim(), email: body.email.trim().toLowerCase(), password: body.password });
-  const token = createHash("sha256").update(`${user.id}:${Date.now()}`).digest("hex");
-  return NextResponse.json({ user: { name: user.name, email: user.email }, token }, { status: 201 });
+  const body = await readJson(request);
+  const name = trimOrNull(body?.name);
+  const email = trimOrNull(body?.email)?.toLowerCase();
+  const company = trimOrNull(body?.company);
+  if (!name || !email || !body?.password) return jsonError("Nome, email e senha são obrigatórios.", 400);
+  if (!company) return jsonError("Informe a empresa ou escritório.", 400);
+  if (String(body.password).length < 6) return jsonError("A senha deve ter pelo menos 6 caracteres.", 400);
+  if (await findUser(email)) return jsonError("Este email já está cadastrado.", 409);
+  try {
+    const userId = await signupFirmUser({ name, email, password: String(body.password), company, job_title: trimOrNull(body.job_title) });
+    await createSession(userId);
+  } catch (error) {
+    if (isMysqlError(error, "ER_DUP_ENTRY")) return jsonError("Este email já está cadastrado.", 409);
+    throw error;
+  }
+  return NextResponse.json({ user: { name, email, role: "firm_user" } }, { status: 201 });
 }
-

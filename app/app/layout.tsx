@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Inbox, Building2, LogOut, Menu, Shield, X } from "lucide-react";
 import { Toaster } from "sonner";
+import { ApiStatusCard, SessionLoading } from "@/components/LayoutParts";
 import { api } from "@/lib/api-client";
+import { useSession } from "@/lib/use-session";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { session, signout } = useSession("staff");
 
   const navItems = [
     { to: "/app/cases", label: "Visão Geral", icon: Inbox },
@@ -35,9 +37,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]">demo@triaige.ai</span>
+          <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]">{session?.user.email ?? ""}</span>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => void signout()}
             className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border text-sm text-foreground hover:bg-secondary transition"
           >
             <LogOut className="size-4" /> Sair
@@ -73,16 +75,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
-          <div className="mt-6 p-3 rounded-xl border border-border bg-secondary/40">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">Status API</div>
-            <div className="flex items-center gap-2 text-xs text-foreground">
-              <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-              Operacional · 99.98%
-            </div>
+          <div className="mt-6">
+            <ApiStatusCard />
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 md:ml-0">{children}</main>
+        <main className="flex-1 min-w-0 md:ml-0">{session ? children : <SessionLoading />}</main>
       </div>
     </div>
   );

@@ -4,19 +4,23 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
-import { MOCK_LGPD } from "@/lib/mock-data";
+import type { LgpdSummary } from "@/lib/types";
 
-type Lgpd = typeof MOCK_LGPD;
+type Lgpd = LgpdSummary;
 
 export default function LgpdPage() {
   const [data, setData] = useState<Lgpd | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     api.admin
       .lgpd()
       .then(setData)
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Falha ao carregar LGPD."))
+      .catch((error) => {
+        setUnavailable(true);
+        toast.error(error instanceof Error ? error.message : "Falha ao carregar LGPD.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -32,9 +36,14 @@ export default function LgpdPage() {
         </p>
       </div>
 
-      {loading || !data ? (
+      {loading ? (
         <div className="rounded-xl border border-border bg-card/60 p-12 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Carregando...
+        </div>
+      ) : unavailable || !data ? (
+        <div className="rounded-xl border border-border bg-card/60 p-10 text-center">
+          <div className="font-medium">Dados indisponíveis</div>
+          <p className="text-sm text-muted-foreground mt-2">Não foi possível carregar os indicadores de LGPD.</p>
         </div>
       ) : (
         <>
@@ -46,13 +55,14 @@ export default function LgpdPage() {
             </div>
             <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-5">
               <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Incidentes de exposição de dados</div>
-              <div className="text-3xl font-display mt-2 text-emerald-300">{data.dataIncidents}</div>
+              <div className={`text-3xl font-display mt-2 ${data.dataIncidents ? "text-rose-300" : "text-emerald-300"}`}>{data.dataIncidents}</div>
               <div className="text-[11px] text-muted-foreground mt-1">Meta: zero incidentes</div>
             </div>
           </div>
           <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-4 text-xs text-muted-foreground">
-            Indicador de incidentes depende de padronização do tipo de evento em Logs &amp; Auditoria
-            {!api.useMockData ? " · valores placeholder sem mock ativo." : "."}
+            Incidentes são contados a partir dos eventos <code>data_incident</code> em Logs &amp; Auditoria. A remoção
+            considera os documentos com prazo de retenção (<code>retention_expires_at</code>) vencido que já tiveram o
+            original apagado (<code>raw_deleted_at</code>).
           </div>
         </>
       )}

@@ -5,9 +5,12 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ChartCanvas } from "@/components/ChartCanvas";
 import { api } from "@/lib/api-client";
-import { MOCK_TECH_HEALTH } from "@/lib/mock-data";
+import type { TechHealth } from "@/lib/types";
 
-type Health = typeof MOCK_TECH_HEALTH;
+type Health = TechHealth;
+
+const GRAFANA_URL = process.env.NEXT_PUBLIC_GRAFANA_URL;
+const NOT_CONFIGURED = "Integração com CloudWatch não configurada";
 
 export default function ObservabilidadePage() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -81,7 +84,7 @@ export default function ObservabilidadePage() {
       ) : unavailable || !health ? (
         <div className="rounded-xl border border-border bg-card/60 p-10 text-center">
           <div className="font-medium">Dados indisponíveis</div>
-          <p className="text-sm text-muted-foreground mt-2">Ative NEXT_PUBLIC_USE_MOCK_DATA=true para visualizar o resumo mock.</p>
+          <p className="text-sm text-muted-foreground mt-2">Não foi possível carregar a saúde técnica. Tente novamente em instantes.</p>
         </div>
       ) : (
         <>
@@ -95,17 +98,21 @@ export default function ObservabilidadePage() {
             <button
               type="button"
               className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-brand text-brand-foreground font-semibold text-sm brand-glow"
-              onClick={() => toast.message("Configure a URL do Grafana interno para liberar este atalho.")}
+              onClick={() =>
+                GRAFANA_URL
+                  ? window.open(GRAFANA_URL, "_blank", "noopener,noreferrer")
+                  : toast.message("Defina NEXT_PUBLIC_GRAFANA_URL para liberar este atalho.")
+              }
             >
               Abrir no Grafana <ExternalLink className="size-4" />
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <HealthCard label="Uptime da API" source="CloudWatch" value={health.apiUptime} sub="SLA contratual: 99,9%" good />
-            <HealthCard label="Sucesso de envio (SMTP)" source="MySQL" value={health.smtpSuccess} sub={`${health.smtpFailures} falhas no período`} warn />
-            <HealthCard label="Latência média da API" source="CloudWatch" value={health.apiLatency} sub={`p95: ${health.apiLatencyP95}`} />
-            <HealthCard label="Filas SQS" source="CloudWatch" value={health.sqsStatus} sub={health.sqsSub} good />
+            <HealthCard label="Uptime da API" source="CloudWatch" value={health.apiUptime} sub={health.apiUptime ? "SLA contratual: 99,9%" : NOT_CONFIGURED} good />
+            <HealthCard label="Sucesso de envio (SMTP)" source="MySQL" value={health.smtpSuccess} sub={`${health.smtpFailures} falhas no período`} warn={health.smtpFailures > 0} good={health.smtpFailures === 0} />
+            <HealthCard label="Latência média da API" source="CloudWatch" value={health.apiLatency} sub={health.apiLatency ? `p95: ${health.apiLatencyP95 ?? "—"}` : NOT_CONFIGURED} />
+            <HealthCard label="Filas SQS" source="CloudWatch" value={health.sqsStatus} sub={health.sqsStatus ? health.sqsSub ?? "" : NOT_CONFIGURED} good />
           </div>
 
           <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-5">
@@ -116,7 +123,11 @@ export default function ObservabilidadePage() {
               </span>
             </h3>
             <p className="text-xs text-muted-foreground mb-4">Da entrada do documento ao relatório final</p>
-            {pipelineChart ? <ChartCanvas config={pipelineChart} className="h-64" /> : null}
+            {health.pipeline.labels.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma etapa concluída no período.</p>
+            ) : pipelineChart ? (
+              <ChartCanvas config={pipelineChart} className="h-64" />
+            ) : null}
           </div>
         </>
       )}
@@ -134,11 +145,23 @@ function HealthCard({
 }: {
   label: string;
   source: string;
-  value: string;
+  value: string | null;
   sub: string;
   good?: boolean;
   warn?: boolean;
 }) {
+  if (value === null) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card/40 backdrop-blur-xl p-4">
+        <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground flex items-center gap-2 flex-wrap">
+          {label}
+          <span className="normal-case tracking-normal text-[9px] border border-border rounded px-1.5 py-0.5">{source}</span>
+        </div>
+        <div className="text-lg font-display mt-1 text-muted-foreground">Não configurado</div>
+        <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>
+      </div>
+    );
+  }
   return (
     <div className="rounded-xl border border-border bg-card/60 backdrop-blur-xl p-4">
       <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground flex items-center gap-2 flex-wrap">
