@@ -101,7 +101,7 @@ export default function PortalCasesPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        <Kpi icon={<Inbox className="size-5" />} label="Recebidos hoje" value={kpis.recebidosHoje} accent="text-sky-300" sub="Últimas 24h" />
+        <Kpi icon={<Inbox className="size-5" />} label="Recebidos hoje" value={kpis.recebidosHoje} accent="text-sky-300" sub="Desde meia-noite" />
         <Kpi icon={<Settings2 className="size-5" />} label="Em processamento" value={kpis.emProc} accent="text-amber-300" sub="Aguardando etapas de IA" />
         <Kpi icon={<AlertTriangle className="size-5" />} label="Com falha" value={kpis.falhas} accent="text-rose-300" sub="Processamento ou análise interrompidos" />
       </div>

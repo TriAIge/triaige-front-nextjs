@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api-client";
 import { maskCnpj, maskPhone } from "@/lib/masks";
 import type { Company, CompanyLifecycle } from "@/lib/types";
@@ -37,6 +38,8 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Company | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Company | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.clients
@@ -58,14 +61,18 @@ export default function ClientsPage() {
     );
   }, [items, search]);
 
-  async function remove(id: string) {
-    if (!confirm("Excluir este escritório?")) return;
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await api.clients.remove(id);
-      setItems((xs) => xs.filter((c) => c.id !== id));
+      await api.clients.remove(pendingDelete.id);
+      setItems((xs) => xs.filter((c) => c.id !== pendingDelete.id));
+      setPendingDelete(null);
       toast.success("Escritório excluído");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao excluir.");
+    } finally {
+      setDeleting(false);
     }
   }
   function openNew() {
@@ -180,7 +187,7 @@ export default function ClientsPage() {
                     <Pencil className="size-3.5" /> Editar
                   </button>
                   <button
-                    onClick={() => remove(c.id)}
+                    onClick={() => setPendingDelete(c)}
                     className="h-9 px-3 rounded-lg border border-border text-muted-foreground hover:text-rose-300 hover:border-rose-500/40 hover:bg-rose-500/10 transition"
                   >
                     <Trash2 className="size-4" />
@@ -193,6 +200,26 @@ export default function ClientsPage() {
       )}
 
       {showForm && <CompanyForm initial={editing} onClose={() => setShowForm(false)} onSave={save} />}
+      {pendingDelete ? (
+        pendingDelete.cases_count > 0 ? (
+          <ConfirmDialog
+            title="Não é possível excluir"
+            description={`O escritório “${pendingDelete.name}” já tem casos de triagem e não pode ser removido. Marque-o como inativo.`}
+            onClose={() => setPendingDelete(null)}
+          />
+        ) : (
+          <ConfirmDialog
+            title="Excluir escritório"
+            description={`Tem certeza que deseja excluir “${pendingDelete.name}”? Esta ação não pode ser desfeita.`}
+            confirmLabel="Excluir"
+            busy={deleting}
+            onConfirm={() => void confirmDelete()}
+            onClose={() => {
+              if (!deleting) setPendingDelete(null);
+            }}
+          />
+        )
+      ) : null}
     </div>
   );
 }

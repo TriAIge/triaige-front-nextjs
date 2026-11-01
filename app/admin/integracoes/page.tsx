@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, KeyRound, Loader2, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api-client";
 import type { ApiCredential, CompanySummary } from "@/lib/types";
 
@@ -32,6 +33,8 @@ export default function IntegracoesPage() {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [issued, setIssued] = useState<{ token: string; company: string } | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<ApiCredential | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => {
     Promise.all([api.admin.credentials(), api.clients.list()])
@@ -49,14 +52,18 @@ export default function IntegracoesPage() {
     return items.filter((c) => c.company_name.toLowerCase().includes(q) || c.credential.toLowerCase().includes(q));
   }, [items, search]);
 
-  async function revoke(id: string) {
-    if (!confirm("Revogar esta credencial? Integrações que a utilizam deixarão de funcionar.")) return;
+  async function confirmRevoke() {
+    if (!pendingRevoke) return;
+    setRevoking(true);
     try {
-      const updated = await api.admin.revokeCredential(id);
-      setItems((xs) => xs.map((c) => (c.id === id ? updated : c)));
+      const updated = await api.admin.revokeCredential(pendingRevoke.id);
+      setItems((xs) => xs.map((c) => (c.id === pendingRevoke.id ? updated : c)));
+      setPendingRevoke(null);
       toast.success("Credencial revogada");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao revogar.");
+    } finally {
+      setRevoking(false);
     }
   }
 
@@ -141,7 +148,7 @@ export default function IntegracoesPage() {
                 <div>
                   <button
                     disabled={c.status === "revogada"}
-                    onClick={() => void revoke(c.id)}
+                    onClick={() => setPendingRevoke(c)}
                     className="h-8 px-3 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition disabled:opacity-40"
                   >
                     Revogar
@@ -155,6 +162,18 @@ export default function IntegracoesPage() {
 
       {showNew && <NewCredentialModal companies={companies} onClose={() => setShowNew(false)} onCreate={create} />}
       {issued && <IssuedTokenModal {...issued} onClose={() => setIssued(null)} />}
+      {pendingRevoke ? (
+        <ConfirmDialog
+          title="Revogar credencial"
+          description={`Revogar a credencial de “${pendingRevoke.company_name}” (${pendingRevoke.credential})? Integrações que a utilizam deixarão de funcionar.`}
+          confirmLabel="Revogar"
+          busy={revoking}
+          onConfirm={() => void confirmRevoke()}
+          onClose={() => {
+            if (!revoking) setPendingRevoke(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

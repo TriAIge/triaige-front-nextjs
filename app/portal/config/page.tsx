@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api-client";
 import { maskPhone } from "@/lib/masks";
 import {
@@ -39,6 +40,8 @@ export default function PortalConfigPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<PortalRecipient | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PortalRecipient | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     Promise.all([api.portal.recipients(), api.portal.credential()])
@@ -77,14 +80,18 @@ export default function PortalConfigPage() {
     }
   }
 
-  async function remove(r: PortalRecipient) {
-    if (!confirm(`Remover ${r.name} dos destinatários de relatório?`)) return;
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await api.portal.removeRecipient(r.id);
-      setRecipients((xs) => xs.filter((x) => x.id !== r.id));
+      await api.portal.removeRecipient(pendingDelete.id);
+      setRecipients((xs) => xs.filter((x) => x.id !== pendingDelete.id));
+      setPendingDelete(null);
       toast.success("Destinatário removido");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao remover destinatário.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -142,7 +149,7 @@ export default function PortalConfigPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void remove(r)}
+                        onClick={() => setPendingDelete(r)}
                         aria-label={`Remover ${r.name}`}
                         className="h-8 px-2 rounded-lg border border-border text-muted-foreground hover:text-rose-300 hover:border-rose-500/40 hover:bg-rose-500/10 transition"
                       >
@@ -192,6 +199,18 @@ export default function PortalConfigPage() {
       )}
 
       {showForm && <RecipientForm initial={editing} onClose={() => setShowForm(false)} onSave={save} />}
+      {pendingDelete ? (
+        <ConfirmDialog
+          title="Remover destinatário"
+          description={`Remover “${pendingDelete.name}” dos destinatários de relatório? Essa pessoa deixará de receber os relatórios gerados.`}
+          confirmLabel="Remover"
+          busy={deleting}
+          onConfirm={() => void confirmDelete()}
+          onClose={() => {
+            if (!deleting) setPendingDelete(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
