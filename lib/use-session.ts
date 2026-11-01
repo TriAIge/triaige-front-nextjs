@@ -16,6 +16,7 @@ export function useSession(area: SessionArea) {
       .me(area)
       .then((s) => {
         if (!active) return;
+        if (s.user.must_change_password) return router.replace("/redefinir-senha");
         const isFirm = s.user.role === "firm_user";
         if (area === "staff" && isFirm) return router.replace("/portal/cases");
         if (area === "firm" && !isFirm) return router.replace("/admin/cases");

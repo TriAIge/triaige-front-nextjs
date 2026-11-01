@@ -49,7 +49,20 @@ export type Company = {
   notes: string | null;
   created_at: string;
   cases_count: number;
+  users_count: number;
   lifecycle_status?: CompanyLifecycle;
+};
+
+/** Portal login for a law firm (`app_users` with role firm_user). */
+export type FirmUser = {
+  id: string;
+  name: string;
+  email: string;
+  job_title: string | null;
+  active: boolean;
+  /** True until the user sets their own password (temp password from triAIge staff). */
+  must_change_password: boolean;
+  created_at: string;
 };
 
 export type CompanySummary = Pick<Company, "id" | "name" | "plan">;
@@ -72,7 +85,14 @@ export type LegalCase = {
 };
 
 export type SessionInfo = {
-  user: { id: string; name: string; email: string; role: UserRole; job_title: string | null };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    job_title: string | null;
+    must_change_password: boolean;
+  };
   company: CompanySummary | null;
 };
 
@@ -122,7 +142,7 @@ export const AUDIT_EVENT_TYPES: { value: string; label: string }[] = [
   { value: "law_firm_created", label: "Escritório cadastrado" },
   { value: "law_firm_updated", label: "Escritório atualizado" },
   { value: "law_firm_deleted", label: "Escritório removido" },
-  { value: "user_signup", label: "Cadastro no portal" },
+  { value: "user_signup", label: "Usuário do portal criado" },
   { value: "credential_created", label: "Credencial criada" },
   { value: "credential_revoked", label: "Credencial revogada" },
   { value: "data_incident", label: "Incidente de dados" },
