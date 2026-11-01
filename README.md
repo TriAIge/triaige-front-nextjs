@@ -124,6 +124,8 @@ Com `NEXT_PUBLIC_USE_MOCK_DATA=true` no `.env.local`, todas as telas usam dados 
 - `GET /api/admin/credentials`, `POST /api/admin/credentials` (`{ company_id, name?, expires_at? }`; o token é exibido só na resposta), `POST /api/admin/credentials/:id/revoke`
 - `GET /api/admin/audit` — `company_id`, `event_type`, `correlation_id`, `from`, `to`, `page`, `limit`
 - `GET /api/admin/lgpd`
+- `GET/POST /api/admin/staff` — funcionários triAIge (`admin`/`ops`); `PUT/PATCH/DELETE /api/admin/staff/:id`
+- `PUT /api/auth/profile` — atualiza nome/email/cargo e senha opcional do usuário logado
 
 ### Portal do escritório (`firm_user`)
 

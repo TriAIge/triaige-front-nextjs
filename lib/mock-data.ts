@@ -1,6 +1,6 @@
 import type {
   ApiCredential, AuditEvent, BusinessMetrics, CaseStatus, Company, CompanyLifecycle, FirmUser, LegalCase, LgpdSummary,
-  PortalAuditEvent, PortalCaseDetail, PortalCredential, PortalMetrics, PortalRecipient, PortalSession, SessionInfo,
+  PortalAuditEvent, PortalCaseDetail, PortalCredential, PortalMetrics, PortalRecipient, PortalSession, SessionInfo, StaffUser,
   SessionStatus, TechHealth,
 } from "./types";
 
@@ -252,6 +252,19 @@ export const MOCK_PORTAL_SESSION: PortalSession = {
   plan: "Profissional",
   userEmail: "contato@andradesocios.com.br",
 };
+
+export const MOCK_STAFF_USERS: StaffUser[] = [
+  {
+    id: "u-admin",
+    name: "Equipe triAIge",
+    email: "ops@triaige.ai",
+    job_title: "Operações",
+    role: "admin",
+    active: true,
+    must_change_password: false,
+    created_at: h(900),
+  },
+];
 
 export const MOCK_STAFF_SESSION: SessionInfo = {
   user: {

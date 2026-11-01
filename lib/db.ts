@@ -4,7 +4,8 @@ import { db, withTransaction } from "./mysql";
 import { hashPassword } from "./password";
 import { CASE_STATUS_SQL } from "./pipeline";
 import { recordBackofficeEvent, type Executor } from "./repos/audit";
-import type { Company, CompanyLifecycle, FirmUser, LegalCase, UserRole } from "./types";
+import type { Company, CompanyLifecycle, FirmUser, LegalCase, StaffRole, StaffUser, UserRole } from "./types";
+import { STAFF_ROLES } from "./types";
 
 type CompanyInput = Omit<Company, "id" | "created_at" | "cases_count">;
 export type UserRow = RowDataPacket & {
@@ -296,4 +297,178 @@ export async function changeOwnPassword(userId: string, newPassword: string): Pr
     `UPDATE app_users SET password_hash = ?, must_change_password = 0, updated_at = NOW(6) WHERE id = ?`,
     [hashPassword(newPassword), userId],
   );
+}
+
+function mapStaffUser(row: RowDataPacket): StaffUser {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    email: String(row.email),
+    job_title: row.job_title == null ? null : String(row.job_title),
+    role: row.role as StaffRole,
+    active: Boolean(Number(row.active ?? 1)),
+    must_change_password: Boolean(Number(row.must_change_password ?? 0)),
+    created_at: String(row.created_at),
+  };
+}
+
+export async function listStaffUsers(): Promise<StaffUser[]> {
+  const [rows] = await db.execute<RowDataPacket[]>(
+    `SELECT id, nome AS name, email, cargo AS job_title, role, ativo AS active, must_change_password,
+       ${iso("created_at")} AS created_at
+     FROM app_users WHERE role IN ('admin', 'ops') ORDER BY ativo DESC, role, nome`,
+  );
+  return rows.map(mapStaffUser);
+}
+
+export async function createStaffUser(
+  input: { name: string; email: string; password: string; role: StaffRole; job_title: string | null },
+  actor: string,
+): Promise<StaffUser> {
+  const email = input.email.toLowerCase();
+  if (!(STAFF_ROLES as readonly string[]).includes(input.role)) {
+    throw Object.assign(new Error("Perfil inválido."), { code: "VALIDATION" });
+  }
+  if (await findUser(email)) throw Object.assign(new Error("Este email já está cadastrado."), { code: "DUPLICATE" });
+  const id = crypto.randomUUID();
+  await withTransaction(async (conn) => {
+    await conn.execute(
+      `INSERT INTO app_users (id, nome, email, password_hash, role, law_firm_id, cargo, ativo, must_change_password, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 1, NOW(6), NOW(6))`,
+      [id, input.name, email, hashPassword(input.password), input.role, input.job_title],
+    );
+    await recordBackofficeEvent({
+      actor,
+      event_type: "staff_user_created",
+      description: `Funcionário triAIge ${input.name} (${email}) criado com perfil ${input.role}.`,
+      payload: { user_id: id, email, role: input.role },
+    }, conn);
+  });
+  const users = await listStaffUsers();
+  const user = users.find((u) => u.id === id);
+  if (!user) throw Object.assign(new Error("Usuário não encontrado."), { code: "NOT_FOUND" });
+  return user;
+}
+
+export async function updateStaffUser(
+  userId: string,
+  input: { name: string; email: string; role: StaffRole; job_title: string | null; password?: string | null },
+  actor: string,
+): Promise<StaffUser> {
+  const email = input.email.toLowerCase();
+  if (!(STAFF_ROLES as readonly string[]).includes(input.role)) {
+    throw Object.assign(new Error("Perfil inválido."), { code: "VALIDATION" });
+  }
+  const [rows] = await db.execute<RowDataPacket[]>(
+    `SELECT id, role, ativo AS active FROM app_users WHERE id = ? AND role IN ('admin', 'ops') LIMIT 1`,
+    [userId],
+  );
+  if (!rows[0]) throw Object.assign(new Error("Usuário não encontrado."), { code: "NOT_FOUND" });
+  const existing = await findUser(email);
+  if (existing && existing.id !== userId) {
+    throw Object.assign(new Error("Este email já está cadastrado."), { code: "DUPLICATE" });
+  }
+  if (rows[0].role === "admin" && input.role !== "admin") {
+    await assertNotLastActiveAdmin(userId);
+  }
+  const password = input.password?.trim();
+  await withTransaction(async (conn) => {
+    if (password) {
+      await conn.execute(
+        `UPDATE app_users SET nome = ?, email = ?, cargo = ?, role = ?, password_hash = ?, must_change_password = 1, updated_at = NOW(6) WHERE id = ?`,
+        [input.name, email, input.job_title, input.role, hashPassword(password), userId],
+      );
+    } else {
+      await conn.execute(
+        `UPDATE app_users SET nome = ?, email = ?, cargo = ?, role = ?, updated_at = NOW(6) WHERE id = ?`,
+        [input.name, email, input.job_title, input.role, userId],
+      );
+    }
+    await recordBackofficeEvent({
+      actor,
+      event_type: "staff_user_updated",
+      description: `Funcionário triAIge ${input.name} (${email}) atualizado.`,
+      payload: { user_id: userId, email, role: input.role, password_reset: Boolean(password) },
+    }, conn);
+  });
+  const users = await listStaffUsers();
+  const user = users.find((u) => u.id === userId);
+  if (!user) throw Object.assign(new Error("Usuário não encontrado."), { code: "NOT_FOUND" });
+  return user;
+}
+
+export async function setStaffUserActive(userId: string, active: boolean, actor: string): Promise<StaffUser> {
+  const [rows] = await db.execute<RowDataPacket[]>(
+    `SELECT id, nome AS name, email, role FROM app_users WHERE id = ? AND role IN ('admin', 'ops') LIMIT 1`,
+    [userId],
+  );
+  if (!rows[0]) throw Object.assign(new Error("Usuário não encontrado."), { code: "NOT_FOUND" });
+  if (!active && rows[0].role === "admin") await assertNotLastActiveAdmin(userId);
+  await withTransaction(async (conn) => {
+    await conn.execute(`UPDATE app_users SET ativo = ?, updated_at = NOW(6) WHERE id = ?`, [active ? 1 : 0, userId]);
+    if (!active) await conn.execute(`DELETE FROM app_sessions WHERE user_id = ?`, [userId]);
+    await recordBackofficeEvent({
+      actor,
+      event_type: active ? "staff_user_activated" : "staff_user_deactivated",
+      description: `Funcionário triAIge ${rows[0].name} (${rows[0].email}) ${active ? "reativado" : "inativado"}.`,
+      payload: { user_id: userId, email: rows[0].email, active },
+    }, conn);
+  });
+  const users = await listStaffUsers();
+  const user = users.find((u) => u.id === userId);
+  if (!user) throw Object.assign(new Error("Usuário não encontrado."), { code: "NOT_FOUND" });
+  return user;
+}
+
+export async function deleteStaffUser(userId: string, actor: string): Promise<void> {
+  const [rows] = await db.execute<RowDataPacket[]>(
+    `SELECT id, nome AS name, email, role, ativo AS active FROM app_users WHERE id = ? AND role IN ('admin', 'ops') LIMIT 1`,
+    [userId],
+  );
+  if (!rows[0]) throw Object.assign(new Error("Usuário não encontrado."), { code: "NOT_FOUND" });
+  if (rows[0].role === "admin" && Number(rows[0].active)) await assertNotLastActiveAdmin(userId);
+  await withTransaction(async (conn) => {
+    await conn.execute(`DELETE FROM app_users WHERE id = ?`, [userId]);
+    await recordBackofficeEvent({
+      actor,
+      event_type: "staff_user_deleted",
+      description: `Funcionário triAIge ${rows[0].name} (${rows[0].email}) excluído.`,
+      payload: { user_id: userId, email: rows[0].email },
+    }, conn);
+  });
+}
+
+async function assertNotLastActiveAdmin(excludeUserId: string) {
+  const [rows] = await db.execute<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM app_users WHERE role = 'admin' AND ativo = 1 AND id <> ?`,
+    [excludeUserId],
+  );
+  if (Number(rows[0]?.total ?? 0) < 1) {
+    throw Object.assign(new Error("É preciso manter ao menos um admin ativo."), { code: "LAST_ADMIN" });
+  }
+}
+
+/** Updates the logged-in user's profile fields; optional password requires verification by the caller. */
+export async function updateOwnProfile(
+  userId: string,
+  input: { name: string; email: string; job_title: string | null; password?: string | null },
+): Promise<{ name: string; email: string; job_title: string | null }> {
+  const email = input.email.toLowerCase();
+  const existing = await findUser(email);
+  if (existing && existing.id !== userId) {
+    throw Object.assign(new Error("Este email já está cadastrado."), { code: "DUPLICATE" });
+  }
+  const password = input.password?.trim();
+  if (password) {
+    await db.execute(
+      `UPDATE app_users SET nome = ?, email = ?, cargo = ?, password_hash = ?, must_change_password = 0, updated_at = NOW(6) WHERE id = ?`,
+      [input.name, email, input.job_title, hashPassword(password), userId],
+    );
+  } else {
+    await db.execute(
+      `UPDATE app_users SET nome = ?, email = ?, cargo = ?, updated_at = NOW(6) WHERE id = ?`,
+      [input.name, email, input.job_title, userId],
+    );
+  }
+  return { name: input.name, email, job_title: input.job_title };
 }

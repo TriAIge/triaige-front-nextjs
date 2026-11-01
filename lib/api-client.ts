@@ -15,6 +15,7 @@ import {
   MOCK_PORTAL_RECIPIENTS,
   MOCK_PORTAL_SESSION,
   MOCK_STAFF_SESSION,
+  MOCK_STAFF_USERS,
   MOCK_FIRM_USERS,
   MOCK_TECH_HEALTH,
   type CompanyCreateInput,
@@ -40,6 +41,8 @@ import type {
   PortalRecipientInput,
   PortalSession,
   SessionInfo,
+  StaffRole,
+  StaffUser,
   TechHealth,
 } from "./types";
 
@@ -89,6 +92,7 @@ const mockState = {
   portalRecipients: MOCK_PORTAL_RECIPIENTS.map((r) => ({ ...r })),
   portalAudit: MOCK_PORTAL_AUDIT.map((e) => ({ ...e })),
   firmUsers: MOCK_FIRM_USERS.map((u) => ({ ...u })),
+  staffUsers: MOCK_STAFF_USERS.map((u) => ({ ...u })),
 };
 
 function recountUsers(companyId: string) {
@@ -312,6 +316,84 @@ const mockApi = {
     async lgpd(): Promise<LgpdSummary> {
       return { ...MOCK_LGPD };
     },
+    async staff(): Promise<StaffUser[]> {
+      return mockState.staffUsers.map((u) => ({ ...u }));
+    },
+    async createStaff(data: {
+      name: string;
+      email: string;
+      password: string;
+      role: StaffRole;
+      job_title?: string;
+    }): Promise<{ user: StaffUser }> {
+      const email = data.email.toLowerCase();
+      if (mockState.staffUsers.some((u) => u.email === email) || mockState.firmUsers.some((u) => u.email === email)) {
+        throw new ApiRequestError("Este email já está cadastrado.", 409);
+      }
+      const user: StaffUser = {
+        id: uid(),
+        name: data.name,
+        email,
+        job_title: data.job_title || null,
+        role: data.role,
+        active: true,
+        must_change_password: true,
+        created_at: new Date().toISOString(),
+      };
+      mockState.staffUsers.push(user);
+      return { user: { ...user } };
+    },
+    async updateStaff(
+      userId: string,
+      data: { name: string; email: string; role: StaffRole; job_title?: string; password?: string },
+    ): Promise<{ user: StaffUser }> {
+      const idx = mockState.staffUsers.findIndex((u) => u.id === userId);
+      if (idx < 0) throw new ApiRequestError("Usuário não encontrado.", 404);
+      const email = data.email.toLowerCase();
+      if (
+        mockState.staffUsers.some((u) => u.email === email && u.id !== userId) ||
+        mockState.firmUsers.some((u) => u.email === email)
+      ) {
+        throw new ApiRequestError("Este email já está cadastrado.", 409);
+      }
+      const prev = mockState.staffUsers[idx];
+      if (prev.role === "admin" && data.role !== "admin") {
+        const otherAdmins = mockState.staffUsers.filter((u) => u.id !== userId && u.role === "admin" && u.active);
+        if (otherAdmins.length < 1) throw new ApiRequestError("É preciso manter ao menos um admin ativo.", 409);
+      }
+      const user: StaffUser = {
+        ...prev,
+        name: data.name,
+        email,
+        role: data.role,
+        job_title: data.job_title || null,
+        must_change_password: data.password ? true : prev.must_change_password,
+      };
+      mockState.staffUsers[idx] = user;
+      return { user: { ...user } };
+    },
+    async setStaffActive(userId: string, active: boolean): Promise<{ user: StaffUser }> {
+      const idx = mockState.staffUsers.findIndex((u) => u.id === userId);
+      if (idx < 0) throw new ApiRequestError("Usuário não encontrado.", 404);
+      const prev = mockState.staffUsers[idx];
+      if (!active && prev.role === "admin") {
+        const otherAdmins = mockState.staffUsers.filter((u) => u.id !== userId && u.role === "admin" && u.active);
+        if (otherAdmins.length < 1) throw new ApiRequestError("É preciso manter ao menos um admin ativo.", 409);
+      }
+      const user = { ...prev, active };
+      mockState.staffUsers[idx] = user;
+      return { user: { ...user } };
+    },
+    async removeStaff(userId: string): Promise<{ success: true }> {
+      const target = mockState.staffUsers.find((u) => u.id === userId);
+      if (!target) throw new ApiRequestError("Usuário não encontrado.", 404);
+      if (target.role === "admin" && target.active) {
+        const otherAdmins = mockState.staffUsers.filter((u) => u.id !== userId && u.role === "admin" && u.active);
+        if (otherAdmins.length < 1) throw new ApiRequestError("É preciso manter ao menos um admin ativo.", 409);
+      }
+      mockState.staffUsers = mockState.staffUsers.filter((u) => u.id !== userId);
+      return { success: true };
+    },
   },
   portal: {
     async session(): Promise<PortalSession> {
@@ -425,6 +507,22 @@ const liveApi: typeof mockApi = {
     auditEvents: (filters: AuditFilters = {}) =>
       request<AuditEvent[]>(withQuery("/api/admin/audit", filters), { cache: "no-store" }),
     lgpd: () => request<LgpdSummary>("/api/admin/lgpd", { cache: "no-store" }),
+    staff: () => request<StaffUser[]>("/api/admin/staff", { cache: "no-store" }),
+    createStaff: (data: {
+      name: string;
+      email: string;
+      password: string;
+      role: StaffRole;
+      job_title?: string;
+    }) => request<{ user: StaffUser }>("/api/admin/staff", { method: "POST", body: data }),
+    updateStaff: (
+      userId: string,
+      data: { name: string; email: string; role: StaffRole; job_title?: string; password?: string },
+    ) => request<{ user: StaffUser }>(`/api/admin/staff/${userId}`, { method: "PUT", body: data }),
+    setStaffActive: (userId: string, active: boolean) =>
+      request<{ user: StaffUser }>(`/api/admin/staff/${userId}`, { method: "PATCH", body: { active } }),
+    removeStaff: (userId: string) =>
+      request<{ success: true }>(`/api/admin/staff/${userId}`, { method: "DELETE" }),
   },
   portal: {
     async session(): Promise<PortalSession> {
@@ -471,6 +569,25 @@ export const api = {
     useMockData
       ? Promise.resolve({ success: true as const })
       : request<{ success: true }>("/api/auth/change-password", { method: "POST", body: data }),
+  updateProfile: (data: {
+    name: string;
+    email: string;
+    job_title?: string;
+    current_password?: string;
+    new_password?: string;
+  }) =>
+    useMockData
+      ? Promise.resolve({
+          user: {
+            id: "u-mock",
+            name: data.name,
+            email: data.email.toLowerCase(),
+            role: "admin" as const,
+            job_title: data.job_title || null,
+            must_change_password: false,
+          },
+        })
+      : request<{ user: SessionInfo["user"] }>("/api/auth/profile", { method: "PUT", body: data }),
   health: () => request<{ status: string; database: string }>("/api/health", { cache: "no-store" }),
   useMockData,
 };

@@ -8,6 +8,12 @@ export const PLANS = ["Starter", "Profissional", "Enterprise"] as const;
 export const COMPANY_LIFECYCLES = ["ativa", "onboarding", "inativa"] as const;
 export const USER_ROLES = ["admin", "ops", "firm_user"] as const;
 export const STAFF_ROLES = ["admin", "ops"] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  admin: "Admin",
+  ops: "Operações",
+};
 export const RECIPIENT_CHANNELS = ["E-mail", "WhatsApp", "CRM"] as const;
 export const METRIC_PERIODS = [7, 30, 90] as const;
 
@@ -61,6 +67,18 @@ export type FirmUser = {
   job_title: string | null;
   active: boolean;
   /** True until the user sets their own password (temp password from triAIge staff). */
+  must_change_password: boolean;
+  created_at: string;
+};
+
+/** Internal triAIge team member (`app_users` with role admin|ops). */
+export type StaffUser = {
+  id: string;
+  name: string;
+  email: string;
+  job_title: string | null;
+  role: StaffRole;
+  active: boolean;
   must_change_password: boolean;
   created_at: string;
 };
