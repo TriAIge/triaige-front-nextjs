@@ -1,6 +1,6 @@
 import type {
-  ApiCredential, AuditEvent, BusinessMetrics, CaseStatus, Company, CompanyLifecycle, LegalCase, LgpdSummary,
-  PortalAuditEvent, PortalCaseDetail, PortalCredential, PortalMetrics, PortalRecipient, PortalSession, SessionInfo,
+  ApiCredential, AuditEvent, BusinessMetrics, CaseStatus, Company, CompanyLifecycle, FirmUser, LegalCase, LgpdSummary,
+  PortalAuditEvent, PortalCaseDetail, PortalCredential, PortalMetrics, PortalRecipient, PortalSession, SessionInfo, StaffUser,
   SessionStatus, TechHealth,
 } from "./types";
 
@@ -22,6 +22,7 @@ export const MOCK_COMPANIES: MockCompany[] = [
     notes: "Foco em trabalhista e cível",
     created_at: h(720),
     cases_count: 4,
+    users_count: 1,
     lifecycle_status: "ativa",
   },
   {
@@ -34,6 +35,7 @@ export const MOCK_COMPANIES: MockCompany[] = [
     notes: "Cliente âncora — integração via API com CRM proprietário",
     created_at: h(1400),
     cases_count: 2,
+    users_count: 0,
     lifecycle_status: "ativa",
   },
   {
@@ -46,6 +48,7 @@ export const MOCK_COMPANIES: MockCompany[] = [
     notes: "Onboarding em andamento",
     created_at: h(96),
     cases_count: 1,
+    users_count: 0,
     lifecycle_status: "onboarding",
   },
   {
@@ -58,6 +61,7 @@ export const MOCK_COMPANIES: MockCompany[] = [
     notes: "Foco em contencioso tributário",
     created_at: h(500),
     cases_count: 1,
+    users_count: 0,
     lifecycle_status: "ativa",
   },
   {
@@ -70,7 +74,21 @@ export const MOCK_COMPANIES: MockCompany[] = [
     notes: null,
     created_at: h(800),
     cases_count: 0,
+    users_count: 0,
     lifecycle_status: "inativa",
+  },
+];
+
+export const MOCK_FIRM_USERS: (FirmUser & { company_id: string })[] = [
+  {
+    id: "u-portal",
+    company_id: "c1",
+    name: "Ana Ribeiro",
+    email: "contato@andradesocios.com.br",
+    job_title: "Sócia",
+    active: true,
+    must_change_password: false,
+    created_at: h(700),
   },
 ];
 
@@ -235,13 +253,40 @@ export const MOCK_PORTAL_SESSION: PortalSession = {
   userEmail: "contato@andradesocios.com.br",
 };
 
+export const MOCK_STAFF_USERS: StaffUser[] = [
+  {
+    id: "u-admin",
+    name: "Equipe triAIge",
+    email: "ops@triaige.ai",
+    job_title: "Operações",
+    role: "admin",
+    active: true,
+    must_change_password: false,
+    created_at: h(900),
+  },
+];
+
 export const MOCK_STAFF_SESSION: SessionInfo = {
-  user: { id: "u-admin", name: "Equipe triAIge", email: "ops@triaige.ai", role: "admin", job_title: "Operações" },
+  user: {
+    id: "u-admin",
+    name: "Equipe triAIge",
+    email: "ops@triaige.ai",
+    role: "admin",
+    job_title: "Operações",
+    must_change_password: false,
+  },
   company: null,
 };
 
 export const MOCK_FIRM_SESSION: SessionInfo = {
-  user: { id: "u-portal", name: "Ana Ribeiro", email: MOCK_PORTAL_SESSION.userEmail, role: "firm_user", job_title: "Sócia" },
+  user: {
+    id: "u-portal",
+    name: "Ana Ribeiro",
+    email: MOCK_PORTAL_SESSION.userEmail,
+    role: "firm_user",
+    job_title: "Sócia",
+    must_change_password: false,
+  },
   company: { id: MOCK_PORTAL_FIRM_ID, name: MOCK_PORTAL_SESSION.firmName, plan: MOCK_PORTAL_SESSION.plan },
 };
 

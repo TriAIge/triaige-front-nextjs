@@ -5,6 +5,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requireSession();
+  const auth = await requireSession(undefined, { allowMustChangePassword: true });
   return auth.ok ? NextResponse.json(auth.session) : auth.response;
 }

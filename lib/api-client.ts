@@ -15,6 +15,8 @@ import {
   MOCK_PORTAL_RECIPIENTS,
   MOCK_PORTAL_SESSION,
   MOCK_STAFF_SESSION,
+  MOCK_STAFF_USERS,
+  MOCK_FIRM_USERS,
   MOCK_TECH_HEALTH,
   type CompanyCreateInput,
   type CompanyUpdateInput,
@@ -27,6 +29,7 @@ import type {
   AuditFilters,
   BusinessMetrics,
   Company,
+  FirmUser,
   LegalCase,
   LgpdSummary,
   MetricPeriod,
@@ -38,6 +41,8 @@ import type {
   PortalRecipientInput,
   PortalSession,
   SessionInfo,
+  StaffRole,
+  StaffUser,
   TechHealth,
 } from "./types";
 
@@ -86,7 +91,14 @@ const mockState = {
   audit: MOCK_AUDIT_EVENTS.map((e) => ({ ...e })),
   portalRecipients: MOCK_PORTAL_RECIPIENTS.map((r) => ({ ...r })),
   portalAudit: MOCK_PORTAL_AUDIT.map((e) => ({ ...e })),
+  firmUsers: MOCK_FIRM_USERS.map((u) => ({ ...u })),
+  staffUsers: MOCK_STAFF_USERS.map((u) => ({ ...u })),
 };
+
+function recountUsers(companyId: string) {
+  const company = mockState.companies.find((c) => c.id === companyId);
+  if (company) company.users_count = mockState.firmUsers.filter((u) => u.company_id === companyId && u.active).length;
+}
 
 function attachCompany(row: LegalCase): LegalCase {
   const company = mockState.companies.find((c) => c.id === row.company_id);
@@ -120,6 +132,7 @@ const mockApi = {
         notes: data.notes ?? null,
         created_at: new Date().toISOString(),
         cases_count: 0,
+        users_count: 0,
         lifecycle_status: data.lifecycle_status ?? "ativa",
       };
       mockState.companies.unshift(created);
@@ -146,6 +159,105 @@ const mockApi = {
         throw new ApiRequestError("Este escritório já tem casos de triagem e não pode ser removido. Marque-o como inativo.", 409);
       }
       mockState.companies = mockState.companies.filter((c) => c.id !== id);
+      return { success: true };
+    },
+    async listUsers(companyId: string): Promise<FirmUser[]> {
+      if (!mockState.companies.some((c) => c.id === companyId)) throw new ApiRequestError("Escritório não encontrado.", 404);
+      return mockState.firmUsers
+        .filter((u) => u.company_id === companyId)
+        .map(({ id, name, email, job_title, active, must_change_password, created_at }) => ({
+          id, name, email, job_title, active, must_change_password, created_at,
+        }));
+    },
+    async createUser(
+      companyId: string,
+      data: { name: string; email: string; password: string; job_title?: string },
+    ): Promise<{ user: FirmUser }> {
+      if (!mockState.companies.some((c) => c.id === companyId)) throw new ApiRequestError("Escritório não encontrado.", 404);
+      const email = data.email.toLowerCase();
+      if (mockState.firmUsers.some((u) => u.email === email)) throw new ApiRequestError("Este email já está cadastrado.", 409);
+      const user: FirmUser & { company_id: string } = {
+        id: uid(),
+        company_id: companyId,
+        name: data.name,
+        email,
+        job_title: data.job_title || null,
+        active: true,
+        must_change_password: true,
+        created_at: new Date().toISOString(),
+      };
+      mockState.firmUsers.push(user);
+      recountUsers(companyId);
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          job_title: user.job_title,
+          active: user.active,
+          must_change_password: user.must_change_password,
+          created_at: user.created_at,
+        },
+      };
+    },
+    async updateUser(
+      companyId: string,
+      userId: string,
+      data: { name: string; email: string; job_title?: string; password?: string },
+    ): Promise<{ user: FirmUser }> {
+      if (!mockState.companies.some((c) => c.id === companyId)) throw new ApiRequestError("Escritório não encontrado.", 404);
+      const idx = mockState.firmUsers.findIndex((u) => u.id === userId && u.company_id === companyId);
+      if (idx < 0) throw new ApiRequestError("Usuário não encontrado.", 404);
+      const email = data.email.toLowerCase();
+      if (mockState.firmUsers.some((u) => u.email === email && u.id !== userId)) {
+        throw new ApiRequestError("Este email já está cadastrado.", 409);
+      }
+      const prev = mockState.firmUsers[idx];
+      const user: FirmUser & { company_id: string } = {
+        ...prev,
+        name: data.name,
+        email,
+        job_title: data.job_title || null,
+        must_change_password: data.password ? true : prev.must_change_password,
+      };
+      mockState.firmUsers[idx] = user;
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          job_title: user.job_title,
+          active: user.active,
+          must_change_password: user.must_change_password,
+          created_at: user.created_at,
+        },
+      };
+    },
+    async setUserActive(companyId: string, userId: string, active: boolean): Promise<{ user: FirmUser }> {
+      if (!mockState.companies.some((c) => c.id === companyId)) throw new ApiRequestError("Escritório não encontrado.", 404);
+      const idx = mockState.firmUsers.findIndex((u) => u.id === userId && u.company_id === companyId);
+      if (idx < 0) throw new ApiRequestError("Usuário não encontrado.", 404);
+      const user = { ...mockState.firmUsers[idx], active };
+      mockState.firmUsers[idx] = user;
+      recountUsers(companyId);
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          job_title: user.job_title,
+          active: user.active,
+          must_change_password: user.must_change_password,
+          created_at: user.created_at,
+        },
+      };
+    },
+    async removeUser(companyId: string, userId: string): Promise<{ success: true }> {
+      if (!mockState.companies.some((c) => c.id === companyId)) throw new ApiRequestError("Escritório não encontrado.", 404);
+      const before = mockState.firmUsers.length;
+      mockState.firmUsers = mockState.firmUsers.filter((u) => !(u.id === userId && u.company_id === companyId));
+      if (mockState.firmUsers.length === before) throw new ApiRequestError("Usuário não encontrado.", 404);
+      recountUsers(companyId);
       return { success: true };
     },
   },
@@ -203,6 +315,84 @@ const mockApi = {
     },
     async lgpd(): Promise<LgpdSummary> {
       return { ...MOCK_LGPD };
+    },
+    async staff(): Promise<StaffUser[]> {
+      return mockState.staffUsers.map((u) => ({ ...u }));
+    },
+    async createStaff(data: {
+      name: string;
+      email: string;
+      password: string;
+      role: StaffRole;
+      job_title?: string;
+    }): Promise<{ user: StaffUser }> {
+      const email = data.email.toLowerCase();
+      if (mockState.staffUsers.some((u) => u.email === email) || mockState.firmUsers.some((u) => u.email === email)) {
+        throw new ApiRequestError("Este email já está cadastrado.", 409);
+      }
+      const user: StaffUser = {
+        id: uid(),
+        name: data.name,
+        email,
+        job_title: data.job_title || null,
+        role: data.role,
+        active: true,
+        must_change_password: true,
+        created_at: new Date().toISOString(),
+      };
+      mockState.staffUsers.push(user);
+      return { user: { ...user } };
+    },
+    async updateStaff(
+      userId: string,
+      data: { name: string; email: string; role: StaffRole; job_title?: string; password?: string },
+    ): Promise<{ user: StaffUser }> {
+      const idx = mockState.staffUsers.findIndex((u) => u.id === userId);
+      if (idx < 0) throw new ApiRequestError("Usuário não encontrado.", 404);
+      const email = data.email.toLowerCase();
+      if (
+        mockState.staffUsers.some((u) => u.email === email && u.id !== userId) ||
+        mockState.firmUsers.some((u) => u.email === email)
+      ) {
+        throw new ApiRequestError("Este email já está cadastrado.", 409);
+      }
+      const prev = mockState.staffUsers[idx];
+      if (prev.role === "admin" && data.role !== "admin") {
+        const otherAdmins = mockState.staffUsers.filter((u) => u.id !== userId && u.role === "admin" && u.active);
+        if (otherAdmins.length < 1) throw new ApiRequestError("É preciso manter ao menos um admin ativo.", 409);
+      }
+      const user: StaffUser = {
+        ...prev,
+        name: data.name,
+        email,
+        role: data.role,
+        job_title: data.job_title || null,
+        must_change_password: data.password ? true : prev.must_change_password,
+      };
+      mockState.staffUsers[idx] = user;
+      return { user: { ...user } };
+    },
+    async setStaffActive(userId: string, active: boolean): Promise<{ user: StaffUser }> {
+      const idx = mockState.staffUsers.findIndex((u) => u.id === userId);
+      if (idx < 0) throw new ApiRequestError("Usuário não encontrado.", 404);
+      const prev = mockState.staffUsers[idx];
+      if (!active && prev.role === "admin") {
+        const otherAdmins = mockState.staffUsers.filter((u) => u.id !== userId && u.role === "admin" && u.active);
+        if (otherAdmins.length < 1) throw new ApiRequestError("É preciso manter ao menos um admin ativo.", 409);
+      }
+      const user = { ...prev, active };
+      mockState.staffUsers[idx] = user;
+      return { user: { ...user } };
+    },
+    async removeStaff(userId: string): Promise<{ success: true }> {
+      const target = mockState.staffUsers.find((u) => u.id === userId);
+      if (!target) throw new ApiRequestError("Usuário não encontrado.", 404);
+      if (target.role === "admin" && target.active) {
+        const otherAdmins = mockState.staffUsers.filter((u) => u.id !== userId && u.role === "admin" && u.active);
+        if (otherAdmins.length < 1) throw new ApiRequestError("É preciso manter ao menos um admin ativo.", 409);
+      }
+      mockState.staffUsers = mockState.staffUsers.filter((u) => u.id !== userId);
+      return { success: true };
     },
   },
   portal: {
@@ -278,6 +468,28 @@ const liveApi: typeof mockApi = {
     update: (id: string, data: CompanyUpdateInput) =>
       request<Company>(`/api/clients/${id}`, { method: "PUT", body: data }),
     remove: (id: string) => request<{ success: true }>(`/api/clients/${id}`, { method: "DELETE" }),
+    listUsers: (companyId: string) => request<FirmUser[]>(`/api/clients/${companyId}/users`, { cache: "no-store" }),
+    createUser: (companyId: string, data: { name: string; email: string; password: string; job_title?: string }) =>
+      request<{ user: FirmUser }>(`/api/clients/${companyId}/users`, {
+        method: "POST",
+        body: data,
+      }),
+    updateUser: (
+      companyId: string,
+      userId: string,
+      data: { name: string; email: string; job_title?: string; password?: string },
+    ) =>
+      request<{ user: FirmUser }>(`/api/clients/${companyId}/users/${userId}`, {
+        method: "PUT",
+        body: data,
+      }),
+    setUserActive: (companyId: string, userId: string, active: boolean) =>
+      request<{ user: FirmUser }>(`/api/clients/${companyId}/users/${userId}`, {
+        method: "PATCH",
+        body: { active },
+      }),
+    removeUser: (companyId: string, userId: string) =>
+      request<{ success: true }>(`/api/clients/${companyId}/users/${userId}`, { method: "DELETE" }),
   },
   cases: {
     list: () => request<LegalCase[]>("/api/cases", { cache: "no-store" }),
@@ -295,6 +507,22 @@ const liveApi: typeof mockApi = {
     auditEvents: (filters: AuditFilters = {}) =>
       request<AuditEvent[]>(withQuery("/api/admin/audit", filters), { cache: "no-store" }),
     lgpd: () => request<LgpdSummary>("/api/admin/lgpd", { cache: "no-store" }),
+    staff: () => request<StaffUser[]>("/api/admin/staff", { cache: "no-store" }),
+    createStaff: (data: {
+      name: string;
+      email: string;
+      password: string;
+      role: StaffRole;
+      job_title?: string;
+    }) => request<{ user: StaffUser }>("/api/admin/staff", { method: "POST", body: data }),
+    updateStaff: (
+      userId: string,
+      data: { name: string; email: string; role: StaffRole; job_title?: string; password?: string },
+    ) => request<{ user: StaffUser }>(`/api/admin/staff/${userId}`, { method: "PUT", body: data }),
+    setStaffActive: (userId: string, active: boolean) =>
+      request<{ user: StaffUser }>(`/api/admin/staff/${userId}`, { method: "PATCH", body: { active } }),
+    removeStaff: (userId: string) =>
+      request<{ success: true }>(`/api/admin/staff/${userId}`, { method: "DELETE" }),
   },
   portal: {
     async session(): Promise<PortalSession> {
@@ -325,11 +553,41 @@ const liveApi: typeof mockApi = {
 
 export const api = {
   ...(useMockData ? mockApi : liveApi),
-  auth: (mode: "signin" | "signup", data: Record<string, string>) =>
-    request<{ user: { name: string; email: string; role: SessionInfo["user"]["role"] } }>(`/api/auth/${mode}`, {
+  auth: (mode: "signin", data: Record<string, string>) =>
+    request<{
+      user: {
+        name: string;
+        email: string;
+        role: SessionInfo["user"]["role"];
+        must_change_password: boolean;
+      };
+    }>(`/api/auth/${mode}`, {
       method: "POST",
       body: data,
     }),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    useMockData
+      ? Promise.resolve({ success: true as const })
+      : request<{ success: true }>("/api/auth/change-password", { method: "POST", body: data }),
+  updateProfile: (data: {
+    name: string;
+    email: string;
+    job_title?: string;
+    current_password?: string;
+    new_password?: string;
+  }) =>
+    useMockData
+      ? Promise.resolve({
+          user: {
+            id: "u-mock",
+            name: data.name,
+            email: data.email.toLowerCase(),
+            role: "admin" as const,
+            job_title: data.job_title || null,
+            must_change_password: false,
+          },
+        })
+      : request<{ user: SessionInfo["user"] }>("/api/auth/profile", { method: "PUT", body: data }),
   health: () => request<{ status: string; database: string }>("/api/health", { cache: "no-store" }),
   useMockData,
 };

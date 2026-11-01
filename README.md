@@ -21,13 +21,15 @@ O schema é o canônico do `triaige-infra`, compartilhado com o orchestrator (qu
 | --- | --- |
 | `database/canonical/schema.sql` | Cópia do schema canônico (referência e ambiente local). |
 | `database/migrations/001_backoffice.sql` | Tabelas do painel (`app_users`, `app_sessions`, `backoffice_audit_events`) e colunas opcionais (`law_firms.plano`, `law_firms.observacoes`, `api_credentials.key_prefix`). Só adiciona; o orchestrator ignora. |
+| `database/migrations/002_app_users_ativo.sql` | Coluna `app_users.ativo` (inativar usuários do portal sem excluir). |
+| `database/migrations/003_must_change_password.sql` | Coluna `app_users.must_change_password` (força troca no 1º acesso). |
 | `database/seed-dev.sql` | Dados de demonstração (inclui o escritório `11111111-…` e a credencial `dev-local-token` do seed do orchestrator). |
 
 Passos:
 
 1. Copie `.env.example` para `.env.local` e preencha a conexão. `DB_NAME` (ou o banco em `DATABASE_URL`) precisa ser o mesmo do orchestrator.
 2. Banco novo: execute `database/canonical/schema.sql`. Banco que o orchestrator já usa: pule este passo.
-3. Execute `database/migrations/001_backoffice.sql` (uma vez).
+3. Execute `database/migrations/001_backoffice.sql`, `002_app_users_ativo.sql` e `003_must_change_password.sql` (uma vez cada).
 4. Opcional: execute `database/seed-dev.sql`.
 5. Inicie com `npm run dev`.
 
@@ -74,12 +76,12 @@ O detalhe do caso no portal lê o `relatorio.json` gravado pelo orchestrator no 
 
 - `admin` / `ops` (equipe triAIge): painel `/app` e `/admin`, endpoints `/api/clients`, `/api/cases` e `/api/admin/*`.
 - `firm_user` (escritório cliente): `/portal` e `/api/portal/*`, sempre limitado ao escritório do usuário.
-- O cadastro em `/login` cria um usuário `firm_user` e um escritório novo com status `ONBOARDING`.
+- Contas do portal (`firm_user`) são criadas só pela equipe triAIge em `/app/clients` (botão de usuário do portal). O auto-cadastro em `/login` está desativado.
 
 ## Páginas
 
 - `/` — landing page
-- `/login` — login e cadastro
+- `/login` — login (sem cadastro público)
 - `/app/cases`, `/admin/cases` — acompanhamento das sessões de triagem (somente leitura)
 - `/app/clients`, `/admin/clients` — CRUD de escritórios clientes
 - `/admin/negocio` — indicadores de negócio
@@ -100,8 +102,9 @@ Com `NEXT_PUBLIC_USE_MOCK_DATA=true` no `.env.local`, todas as telas usam dados 
 
 ### Autenticação
 
-- `POST /api/auth/signin` — `{ email, password }`; grava o cookie de sessão
-- `POST /api/auth/signup` — `{ name, email, password, company, job_title? }`
+- `POST /api/auth/signin` — `{ email, password }`; grava o cookie de sessão; se `must_change_password`, o front manda para `/redefinir-senha`
+- `POST /api/auth/change-password` — `{ current_password, new_password }` (limpa o flag de 1º acesso)
+- `POST /api/auth/signup` — desativado (`403`); use `POST /api/clients/:id/users`
 - `POST /api/auth/signout`
 - `GET /api/auth/me` — usuário, perfil e escritório da sessão
 - `GET /api/health` — conectividade com o banco
@@ -109,6 +112,11 @@ Com `NEXT_PUBLIC_USE_MOCK_DATA=true` no `.env.local`, todas as telas usam dados 
 ### Equipe triAIge (`admin`/`ops`)
 
 - `GET/POST /api/clients`, `GET/PUT/PATCH/DELETE /api/clients/:id` (`DELETE` responde `409` se o escritório tiver sessões)
+- `GET /api/clients/:id/users` — lista usuários do portal do escritório
+- `POST /api/clients/:id/users` — cria `firm_user` do portal (`{ name, email, password, job_title? }`)
+- `PUT /api/clients/:id/users/:userId` — edita usuário (`{ name, email, job_title?, password? }`)
+- `PATCH /api/clients/:id/users/:userId` — ativa/inativa (`{ active: boolean }`; inativar encerra sessões)
+- `DELETE /api/clients/:id/users/:userId` — exclui usuário do portal
 - `GET /api/cases`, `GET /api/cases/:id` — somente leitura
   - `GET /api/cases` aceita `status`, `company_id`, `area`, `q`, `page`, `limit` (total no header `X-Total-Count`)
 - `GET /api/admin/metrics?period=7|30|90`
@@ -116,6 +124,8 @@ Com `NEXT_PUBLIC_USE_MOCK_DATA=true` no `.env.local`, todas as telas usam dados 
 - `GET /api/admin/credentials`, `POST /api/admin/credentials` (`{ company_id, name?, expires_at? }`; o token é exibido só na resposta), `POST /api/admin/credentials/:id/revoke`
 - `GET /api/admin/audit` — `company_id`, `event_type`, `correlation_id`, `from`, `to`, `page`, `limit`
 - `GET /api/admin/lgpd`
+- `GET/POST /api/admin/staff` — funcionários triAIge (`admin`/`ops`); `PUT/PATCH/DELETE /api/admin/staff/:id`
+- `PUT /api/auth/profile` — atualiza nome/email/cargo e senha opcional do usuário logado
 
 ### Portal do escritório (`firm_user`)
 

@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS app_users (
     role            VARCHAR(20)  NOT NULL,
     law_firm_id     CHAR(36),
     cargo           VARCHAR(120),
+    ativo           TINYINT(1)   NOT NULL DEFAULT 1,
+    must_change_password TINYINT(1) NOT NULL DEFAULT 0,
     created_at      DATETIME(6)  NOT NULL,
     updated_at      DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),

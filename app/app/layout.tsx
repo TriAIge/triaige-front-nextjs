@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Inbox, Building2, LogOut, Menu, Shield, X } from "lucide-react";
+import { Inbox, Building2, LogOut, Menu, Shield, UserCircle, X } from "lucide-react";
 import { Toaster } from "sonner";
 import { ApiStatusCard, SessionLoading } from "@/components/LayoutParts";
 import { api } from "@/lib/api-client";
@@ -17,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { to: "/app/cases", label: "Visão Geral", icon: Inbox },
     { to: "/app/clients", label: "Escritórios Clientes", icon: Building2 },
+    { to: "/app/perfil", label: "Meu perfil", icon: UserCircle },
     { to: "/admin/cases", label: "Painel Admin", icon: Shield },
   ] as const;
 

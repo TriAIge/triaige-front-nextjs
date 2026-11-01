@@ -13,6 +13,8 @@ import {
   Menu,
   ScrollText,
   Shield,
+  UserCircle,
+  Users,
   X,
 } from "lucide-react";
 import { Toaster } from "sonner";
@@ -32,11 +34,16 @@ const navGroups = [
   {
     label: "Plataforma",
     items: [
+      { to: "/admin/equipe", label: "Equipe triAIge", icon: Users },
       { to: "/admin/observabilidade", label: "Saúde Técnica", icon: Activity },
       { to: "/admin/integracoes", label: "Integrações & API", icon: FileKey2 },
       { to: "/admin/auditoria", label: "Logs & Auditoria", icon: ScrollText },
       { to: "/admin/lgpd", label: "Conformidade / LGPD", icon: Shield },
     ],
+  },
+  {
+    label: "Conta",
+    items: [{ to: "/admin/perfil", label: "Meu perfil", icon: UserCircle }],
   },
 ] as const;
 

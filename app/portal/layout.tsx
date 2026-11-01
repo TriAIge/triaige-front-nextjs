@@ -11,6 +11,7 @@ import {
   Menu,
   ScrollText,
   Settings2,
+  UserCircle,
   X,
 } from "lucide-react";
 import { Toaster } from "sonner";
@@ -33,6 +34,7 @@ const navGroups = [
     items: [
       { to: "/portal/config", label: "Canais & Notificações", icon: Settings2 },
       { to: "/portal/auditoria", label: "Auditoria", icon: ScrollText },
+      { to: "/portal/perfil", label: "Meu perfil", icon: UserCircle },
     ],
   },
 ] as const;
