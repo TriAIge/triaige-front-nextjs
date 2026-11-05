@@ -26,7 +26,14 @@ export default function LoginPage() {
       toast.success("Bem-vindo de volta");
       const areas = user.role === "firm_user" ? ["/portal"] : ["/admin", "/app"];
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next && areas.some((area) => next.startsWith(area)) ? next : `${areas[0]}/cases`);
+      // Só caminhos internos da área do perfil ("/admin" ou "/admin/..."), nunca "//host" ou URL externa.
+      const allowed =
+        next !== null &&
+        next.startsWith("/") &&
+        !next.startsWith("//") &&
+        areas.some((area) => next === area || next.startsWith(`${area}/`) || next.startsWith(`${area}?`));
+      // replace: o "voltar" do navegador não retorna para a tela de login.
+      router.replace(allowed ? next : `${areas[0]}/cases`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível entrar.");
     } finally {

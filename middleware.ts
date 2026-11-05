@@ -7,7 +7,8 @@ export function middleware(request: NextRequest) {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true") return NextResponse.next();
   if (request.cookies.get(SESSION_COOKIE)?.value) return NextResponse.next();
   const login = new URL("/login", request.url);
-  login.searchParams.set("next", request.nextUrl.pathname);
+  // Guarda também a query (ex.: filtros) para voltar exatamente à página pedida após o login.
+  login.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   return NextResponse.redirect(login);
 }
 

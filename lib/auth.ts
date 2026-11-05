@@ -19,8 +19,11 @@ export async function createSession(userId: string) {
   await db.execute("DELETE FROM app_sessions WHERE expires_at < NOW(6)");
   await db.execute("INSERT INTO app_sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, NOW(6))",
     [hashToken(token), userId, expiresAt]);
+  // COOKIE_SECURE=false só enquanto o ALB atende em HTTP (sem certificado): o navegador
+  // descarta cookie Secure recebido por HTTP e o login volta para /login.
+  const secure = process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production";
   (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: expiresAt,
+    httpOnly: true, sameSite: "lax", secure, path: "/", expires: expiresAt,
   });
 }
 
