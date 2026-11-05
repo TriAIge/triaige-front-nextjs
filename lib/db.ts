@@ -7,7 +7,7 @@ import { recordBackofficeEvent, type Executor } from "./repos/audit";
 import type { Company, CompanyLifecycle, FirmUser, LegalCase, StaffRole, StaffUser, UserRole } from "./types";
 import { STAFF_ROLES } from "./types";
 
-type CompanyInput = Omit<Company, "id" | "created_at" | "cases_count">;
+type CompanyInput = Omit<Company, "id" | "created_at" | "cases_count" | "users_count">;
 export type UserRow = RowDataPacket & {
   id: string;
   name: string;

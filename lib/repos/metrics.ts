@@ -1,4 +1,5 @@
 import type { RowDataPacket } from "mysql2";
+import { apiUptimePercent } from "../cloudwatch";
 import { db } from "../mysql";
 import { CASE_STATUS_SQL, DELIVERED_SQL, FAILED_DELIVERY_SQL, PROCESSING_STEP_LABELS } from "../pipeline";
 import {
@@ -37,8 +38,8 @@ async function processedStats(days: number, offsetDays: number, companyId?: stri
      FROM triage_sessions ts JOIN triage_results tr ON tr.session_id = ts.id
      WHERE ${inWindow("tr.created_at", days, offsetDays)}${s.sql}`, s.params);
   const [[finished]] = await db.execute<RowDataPacket[]>(
-    `SELECT SUM(ts.status = 'ANALYSIS_COMPLETED') AS ok, COUNT(*) AS total FROM triage_sessions ts
-     WHERE ts.status IN ('ANALYSIS_COMPLETED', 'ANALYSIS_FAILED', 'FAILED') AND ${inWindow("ts.updated_at", days, offsetDays)}${s.sql}`, s.params);
+    `SELECT SUM(ts.status IN ('ANALYSIS_COMPLETED', 'NOTIFIED', 'NOTIFICATION_FAILED')) AS ok, COUNT(*) AS total FROM triage_sessions ts
+     WHERE ts.status IN ('ANALYSIS_COMPLETED', 'NOTIFIED', 'NOTIFICATION_FAILED', 'ANALYSIS_FAILED', 'FAILED') AND ${inWindow("ts.updated_at", days, offsetDays)}${s.sql}`, s.params);
   return {
     processed: Number(processed.n),
     avgTriageSec: processed.avg_triage === null ? null : Number(processed.avg_triage),
@@ -146,8 +147,13 @@ export async function techHealth(period: MetricPeriod = 30): Promise<TechHealth>
   const byStep = new Map(steps.map((s) => [s.step_name as string, Number(s.avg_seconds)]));
   for (const [step, label] of PROCESSING_STEP_LABELS) if (byStep.has(step)) measured.push([label, byStep.get(step)!]);
   if (analysis.avg_seconds !== null) measured.push(["Análise IA", Number(analysis.avg_seconds)]);
+  // CloudWatch indisponível (sem credenciais/permissão) não pode derrubar a página.
+  const uptime = await apiUptimePercent(period).catch((error) => {
+    console.error("CloudWatch: falha ao ler uptime da API", error);
+    return null;
+  });
   return {
-    apiUptime: null,
+    apiUptime: uptime === null ? null : `${uptime.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`,
     apiLatency: null,
     apiLatencyP95: null,
     sqsStatus: null,

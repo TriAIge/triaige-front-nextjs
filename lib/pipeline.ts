@@ -35,7 +35,8 @@ export const CASE_STATUS_SQL = `CASE
   WHEN ts.status = 'ANALYSIS_COMPLETED' AND EXISTS (
     SELECT 1 FROM notification_deliveries nd WHERE nd.session_id = ts.id AND UPPER(nd.status) IN ${DELIVERED_SQL}
   ) THEN 'enviado'
-  WHEN ts.status = 'ANALYSIS_COMPLETED' THEN 'relatorio_gerado'
+  WHEN ts.status = 'NOTIFIED' THEN 'enviado'
+  WHEN ts.status IN ('ANALYSIS_COMPLETED', 'NOTIFICATION_FAILED') THEN 'relatorio_gerado'
   ELSE 'em_processamento' END`;
 
 export type DeliveryState = "entregue" | "falha" | "pendente";
@@ -85,6 +86,10 @@ function progressFromStatus(status: SessionStatus, delivered: boolean): [number,
     case "ANALYZING": return [5, "running"];
     case "ANALYSIS_FAILED": return [5, "failed"];
     case "ANALYSIS_COMPLETED": return delivered ? [7, "done"] : [6, "running"];
+    case "NOTIFIED": return [7, "done"];
+    case "NOTIFICATION_FAILED": return [6, "failed"];
+    // Status novo do orchestrator ainda não mapeado: não quebra a tela.
+    default: return [0, "pending"];
   }
 }
 

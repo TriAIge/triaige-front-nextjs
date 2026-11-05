@@ -85,7 +85,7 @@ export default function ClientsPage() {
     setShowForm(true);
   }
   async function save(
-    payload: Omit<Company, "id" | "created_at" | "cases_count"> & { lifecycle_status?: CompanyLifecycle },
+    payload: Omit<Company, "id" | "created_at" | "cases_count" | "users_count"> & { lifecycle_status?: CompanyLifecycle },
   ) {
     try {
       if (editing) {
@@ -258,7 +258,7 @@ function CompanyForm({
 }: {
   initial: Company | null;
   onClose: () => void;
-  onSave: (payload: Omit<Company, "id" | "created_at" | "cases_count"> & { lifecycle_status?: CompanyLifecycle }) => void;
+  onSave: (payload: Omit<Company, "id" | "created_at" | "cases_count" | "users_count"> & { lifecycle_status?: CompanyLifecycle }) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [cnpj, setCnpj] = useState(formatCnpj(initial?.cnpj ?? null) ?? "");

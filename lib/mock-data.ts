@@ -408,7 +408,7 @@ export function cloneCases(): LegalCase[] {
   }));
 }
 
-export type CompanyCreateInput = Omit<Company, "id" | "created_at" | "cases_count"> & {
+export type CompanyCreateInput = Omit<Company, "id" | "created_at" | "cases_count" | "users_count"> & {
   lifecycle_status?: CompanyLifecycle;
 };
 export type CompanyUpdateInput = Partial<CompanyCreateInput>;

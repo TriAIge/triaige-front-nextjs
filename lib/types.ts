@@ -2,7 +2,7 @@ export const CASE_STATUSES = ["recebido", "em_processamento", "relatorio_gerado"
 /** triage_sessions.status as written by triaige-srv-orchestrator (SessionStatus enum). */
 export const SESSION_STATUSES = [
   "RECEIVING_DOCUMENTS", "QUEUED_FOR_PROCESSING", "CANCELLED", "COMPLETED", "PARTIALLY_COMPLETED", "FAILED",
-  "ANALYZING", "ANALYSIS_COMPLETED", "ANALYSIS_FAILED",
+  "ANALYZING", "ANALYSIS_COMPLETED", "ANALYSIS_FAILED", "NOTIFIED", "NOTIFICATION_FAILED",
 ] as const;
 export const PLANS = ["Starter", "Profissional", "Enterprise"] as const;
 export const COMPANY_LIFECYCLES = ["ativa", "onboarding", "inativa"] as const;
@@ -35,6 +35,8 @@ export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
   ANALYZING: "Em análise pela IA",
   ANALYSIS_COMPLETED: "Análise concluída",
   ANALYSIS_FAILED: "Falha na análise",
+  NOTIFIED: "Relatório enviado",
+  NOTIFICATION_FAILED: "Falha no envio do relatório",
 };
 
 export type CaseStatus = (typeof CASE_STATUSES)[number];

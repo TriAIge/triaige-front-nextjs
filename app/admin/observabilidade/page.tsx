@@ -9,8 +9,10 @@ import type { TechHealth } from "@/lib/types";
 
 type Health = TechHealth;
 
-const GRAFANA_URL = process.env.NEXT_PUBLIC_GRAFANA_URL;
+const CLOUDWATCH_URL = process.env.NEXT_PUBLIC_CLOUDWATCH_DASHBOARD_URL;
 const NOT_CONFIGURED = "Integração com CloudWatch não configurada";
+// Verde só quando o uptime cumpre o SLA de 99,9%; abaixo disso fica em alerta.
+const uptimeOk = (value: string | null) => value !== null && Number(value.replace("%", "").replace(",", ".")) >= 99.9;
 
 export default function ObservabilidadePage() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -73,7 +75,7 @@ export default function ObservabilidadePage() {
           Saúde <span className="italic text-brand">Técnica</span>
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Resumo operacional. Para análise detalhada (latência, filas, erros), use o Grafana interno.
+          Resumo operacional. Para análise detalhada (latência, filas, erros), use o dashboard do CloudWatch.
         </p>
       </div>
 
@@ -90,26 +92,26 @@ export default function ObservabilidadePage() {
         <>
           <div className="rounded-xl border border-border bg-gradient-to-br from-brand/10 via-card/60 to-secondary/40 backdrop-blur-xl p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold">Observabilidade completa no Grafana</h3>
+              <h3 className="text-sm font-semibold">Observabilidade completa no CloudWatch</h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-                Latência p95/p99, profundidade de filas SQS e erros por Lambda são consultados no Grafana, com dados do CloudWatch.
+                Saúde de cada serviço no load balancer, latência média e p95, erros 5xx, filas SQS e CPU do banco.
               </p>
             </div>
             <button
               type="button"
               className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-brand text-brand-foreground font-semibold text-sm brand-glow"
               onClick={() =>
-                GRAFANA_URL
-                  ? window.open(GRAFANA_URL, "_blank", "noopener,noreferrer")
-                  : toast.message("Defina NEXT_PUBLIC_GRAFANA_URL para liberar este atalho.")
+                CLOUDWATCH_URL
+                  ? window.open(CLOUDWATCH_URL, "_blank", "noopener,noreferrer")
+                  : toast.message("Defina NEXT_PUBLIC_CLOUDWATCH_DASHBOARD_URL para liberar este atalho.")
               }
             >
-              Abrir no Grafana <ExternalLink className="size-4" />
+              Abrir no CloudWatch <ExternalLink className="size-4" />
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <HealthCard label="Uptime da API" source="CloudWatch" value={health.apiUptime} sub={health.apiUptime ? "SLA contratual: 99,9%" : NOT_CONFIGURED} good />
+            <HealthCard label="Uptime da API" source="CloudWatch" value={health.apiUptime} sub={health.apiUptime ? "SLA contratual: 99,9%" : NOT_CONFIGURED} good={uptimeOk(health.apiUptime)} warn={!uptimeOk(health.apiUptime)} />
             <HealthCard label="Sucesso de envio (SMTP)" source="MySQL" value={health.smtpSuccess} sub={`${health.smtpFailures} falhas no período`} warn={health.smtpFailures > 0} good={health.smtpFailures === 0} />
             <HealthCard label="Latência média da API" source="CloudWatch" value={health.apiLatency} sub={health.apiLatency ? `p95: ${health.apiLatencyP95 ?? "—"}` : NOT_CONFIGURED} />
             <HealthCard label="Filas SQS" source="CloudWatch" value={health.sqsStatus} sub={health.sqsStatus ? health.sqsSub ?? "" : NOT_CONFIGURED} good />
